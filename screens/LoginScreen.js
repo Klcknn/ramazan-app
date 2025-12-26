@@ -1,19 +1,21 @@
+import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useContext, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
   ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import AppLogo from '../assets/images/logo/AppLogo';
 import { LocationContext } from '../context/LocationContext';
+
+const { height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -36,7 +38,6 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!validateForm()) return;
-    
     setLoading(true);
     try {
       console.log('Giriş bilgileri:', { email, password });
@@ -51,7 +52,7 @@ export default function LoginScreen({ navigation }) {
   if (locationLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1e3a5f" />
+        <ActivityIndicator size="large" color="#2E7D32" />
         <Text style={styles.loadingText}>Konum bilgisi alınıyor...</Text>
       </View>
     );
@@ -64,79 +65,98 @@ export default function LoginScreen({ navigation }) {
       resizeMode="cover"
     >
       <LinearGradient
-        colors={['rgba(30, 58, 95, 0.85)', 'rgba(34, 139, 34, 0.75)', 'rgba(255, 255, 255, 0.85)']}
+        colors={[
+          'rgba(21, 101, 192, 0.3)',
+          'rgba(46, 125, 50, 0.5)',
+          'rgba(255, 255, 255, 0.8)'
+        ]}
+        locations={[0, 0.5, 1]}
         style={styles.gradient}
       >
-        <KeyboardAvoidingView 
-          style={styles.container}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <ScrollView 
-            contentContainerStyle={styles.scrollContainer}
-            keyboardShouldPersistTaps="handled"
-          >
-            <View style={styles.header}>
+        <View style={styles.container}>
+          {/* Logo ve Konum */}
+          <View style={styles.header}>
+            <View style={styles.logoWrapper}>
+              <AppLogo size={110} color="#2E7D32" />
+            </View>
+            
+            <BlurView intensity={40} tint="light" style={styles.locationBadge}>
               <Text style={styles.locationText}>📍 {fullLocation}</Text>
-              <Text style={styles.title}>🌙 Ramazan Uygulaması</Text>
-              <Text style={styles.subtitle}>Hoş Geldiniz</Text>
+            </BlurView>
+          </View>
+
+          {/* Form Kartı */}
+          <BlurView intensity={60} tint="light" style={styles.formCard}>
+            <Text style={styles.title}>Hoş Geldiniz</Text>
+            <Text style={styles.subtitle}>Ramazan&apos;a Hazırlanın</Text>
+
+            {/* Email */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="ornek@email.com"
+                placeholderTextColor="#999"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
             </View>
 
-            <View style={styles.form}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="ornek@email.com"
-                  placeholderTextColor="#999"
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+            {/* Şifre */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Şifre</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Şifre</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Şifrenizi girin"
-                  placeholderTextColor="#999"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-              </View>
+            {/* Şifremi Unuttum */}
+            <TouchableOpacity 
+              style={styles.forgotButton}
+              onPress={() => Alert.alert('Bilgi', 'Şifre sıfırlama özelliği yakında')}
+            >
+              <Text style={styles.forgotText}>Şifremi Unuttum</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.forgotButton}
-                onPress={() => Alert.alert('Bilgi', 'Şifre sıfırlama özelliği yakında')}
-              >
-                <Text style={styles.forgotText}>Şifremi Unuttum</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.button, loading && styles.buttonDisabled]}
-                onPress={handleLogin}
-                disabled={loading}
+            {/* Giriş Butonu */}
+            <TouchableOpacity 
+              style={[styles.loginButton, loading && styles.buttonDisabled]}
+              onPress={handleLogin}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={['#2E7D32', '#388E3C']}
+                style={styles.buttonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
                   {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
                 </Text>
-              </TouchableOpacity>
+              </LinearGradient>
+            </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.linkButton}
-                onPress={() => navigation.navigate('Register')}
-              >
-                <Text style={styles.linkText}>
-                  Hesabın yok mu? <Text style={styles.linkTextBold}>Kayıt Ol</Text>
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+            {/* Kayıt Ol */}
+            <TouchableOpacity 
+              style={styles.registerButton}
+              onPress={() => navigation.navigate('Register')}
+            >
+              <Text style={styles.registerText}>
+                Hesabın yok mu? <Text style={styles.registerTextBold}>Kayıt Ol</Text>
+              </Text>
+            </TouchableOpacity>
+          </BlurView>
+        </View>
       </LinearGradient>
     </ImageBackground>
   );
@@ -158,107 +178,126 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 16,
     color: '#666',
   },
   container: {
     flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 20,
+    justifyContent: 'space-evenly',
+    paddingVertical: 30,
+    paddingHorizontal: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+  },
+  logoWrapper: {
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  locationBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 25,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+//  borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   locationText: {
-    fontSize: 16,
-    color: '#fff',
-    marginBottom: 10,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 20,
+    fontSize: 14,
+    color: '#1a1a1a',
+    fontWeight: '600',
+  },
+  formCard: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+  //borderColor: 'rgba(255, 255, 255, 0.3)',
+    padding: 20,
   },
   title: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
+    color: '#1a1a1a',
+    textAlign: 'center',
+    marginBottom: 5,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 10,
-  },
-  form: {
-    width: '100%',
-  },
-  inputContainer: {
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'center',
     marginBottom: 20,
   },
+  inputContainer: {
+    marginBottom: 15,
+  },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
-    marginBottom: 8,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
+    color: '#333',
+    marginBottom: 6,
+    marginLeft: 3,
   },
   input: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 12,
-    borderRadius: 10,
-    fontSize: 16,
+    borderRadius: 12,
+    fontSize: 15,
     color: '#333',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
   },
   forgotButton: {
     alignSelf: 'flex-end',
-    marginBottom: 20,
+    marginBottom: 15,
+    marginTop: -5,
   },
   forgotText: {
-    color: '#fff',
-    fontSize: 14,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
+    color: '#2E7D32',
+    fontSize: 13,
+    fontWeight: '600',
   },
-  button: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingVertical: 15,
-    borderRadius: 10,
+  loginButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 15,
+    shadowColor: '#2E7D32',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  buttonGradient: {
+    paddingVertical: 14,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: '#1e3a5f',
-    fontSize: 18,
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  linkButton: {
-    marginTop: 20,
+  registerButton: {
+    paddingVertical: 10,
     alignItems: 'center',
   },
-  linkText: {
-    color: '#fff',
+  registerText: {
+    color: '#666',
     fontSize: 14,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: { width: -1, height: 1 },
-    textShadowRadius: 5,
   },
-  linkTextBold: {
+  registerTextBold: {
     fontWeight: 'bold',
+    color: '#2E7D32',
   },
 });
+

@@ -24,7 +24,8 @@ function AuthStack() {
       <Stack.Screen 
         name="Login" 
         component={LoginScreen}
-        options={{ title: 'Giriş Yap' }}
+        options={{ headerShown: false }}
+       // options={{ title: 'Giriş Yap' }}
       />
       <Stack.Screen 
         name="Register" 

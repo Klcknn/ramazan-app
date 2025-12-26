@@ -77,7 +77,8 @@ const cityBackgrounds = {
   // Doğu Anadolu Bölgesi
   'erzurum': 'https://images.unsplash.com/photo-1597526666937-08c68e80e8ec?w=1200&q=80',
   'erzincan': 'https://images.unsplash.com/photo-1564769610726-5a900d3fd33f?w=1200&q=80',
-  'kars': 'https://plus.unsplash.com/premium_photo-1728072616787-f00295e24deb?q=80',
+  //'kars': 'https://plus.unsplash.com/premium_photo-1728072616787-f00295e24deb?q=80',
+  'kars': 'https://kars.ktb.gov.tr/Resim/217511,manucehrjpg.png?0',
   'agri': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?w=1200&q=80',
   'ardahan': 'https://images.unsplash.com/photo-1584291527935-456e8e2dd734?w=1200&q=80',
   'igdir': 'https://images.unsplash.com/photo-1597526666937-08c68e80e8ec?w=1200&q=80',
