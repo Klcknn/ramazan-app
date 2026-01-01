@@ -1,5 +1,6 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useContext, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import AppLogo from '../assets/images/logo/AppLogo';
+import { auth } from '../config/firebase';
 import { LocationContext } from '../context/LocationContext';
 
 const { height } = Dimensions.get('window');
@@ -38,12 +40,44 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = async () => {
     if (!validateForm()) return;
+    
     setLoading(true);
+    
     try {
-      console.log('Giriş bilgileri:', { email, password });
-      Alert.alert('Bilgi', 'Giriş işlemi yarın Firebase ile yapılacak');
+      // Firebase ile giriş yap
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      console.log('✅ Giriş başarılı:', user.uid);
+      
+      Alert.alert(
+        'Başarılı! 🎉', 
+        'Giriş yapıldı. Ana sayfaya yönlendiriliyorsunuz...'
+      );
+      
+      // TODO: Ana ekrana yönlendir (yarın yapacağız)
+      
     } catch (error) {
-      Alert.alert('Hata', error.message);
+      console.error('❌ Giriş hatası:', error);
+      
+      // Hata mesajlarını Türkçe'ye çevir
+      let errorMessage = 'Giriş sırasında bir hata oluştu';
+      
+      if (error.code === 'auth/user-not-found') {
+        errorMessage = 'Bu email ile kayıtlı kullanıcı bulunamadı';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Yanlış şifre';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz email adresi';
+      } else if (error.code === 'auth/user-disabled') {
+        errorMessage = 'Bu hesap devre dışı bırakılmış';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'İnternet bağlantısı hatası';
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Email veya şifre hatalı';
+      }
+      
+      Alert.alert('Giriş Başarısız', errorMessage);
     } finally {
       setLoading(false);
     }

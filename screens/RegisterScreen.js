@@ -10,6 +10,9 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { auth, db } from '../config/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function RegisterScreen({ navigation }) {
   // State'ler - form verilerini tutar
@@ -68,17 +71,46 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // Şimdilik sadece console'a yazdır
-      console.log('Kayıt bilgileri:', { email, password, fullName });
-      
+      // 1. Firebase'de kullanıcı oluştur
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // 2. Kullanıcı bilgilerini Firestore'a kaydet
+      await setDoc(doc(db, 'users', user.uid), {
+        fullName: fullName,
+        email: email,
+        createdAt: new Date().toISOString(),
+        userId: user.uid,
+      });
+
+      console.log('✅ Kullanıcı başarıyla kaydedildi:', user.uid);
+
       Alert.alert(
-        'Başarılı!', 
-        'Kayıt işlemi başarılı (Firebase entegrasyonu yarın)',
-        [{ text: 'Tamam', onPress: () => navigation.goBack() }]
+        'Başarılı! 🎉', 
+        'Hesabınız oluşturuldu. Giriş yapabilirsiniz.',
+        [{ 
+          text: 'Tamam', 
+          onPress: () => navigation.navigate('Login')
+        }]
       );
       
     } catch (error) {
-      Alert.alert('Hata', error.message);
+      console.error('❌ Kayıt hatası:', error);
+      
+      // Hata mesajlarını Türkçe'ye çevir
+      let errorMessage = 'Kayıt sırasında bir hata oluştu';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = 'Bu email adresi zaten kullanılıyor';
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = 'Geçersiz email adresi';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Şifre çok zayıf (en az 6 karakter)';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'İnternet bağlantısı hatası';
+      }
+      
+      Alert.alert('Hata', errorMessage);
     } finally {
       setLoading(false);
     }
