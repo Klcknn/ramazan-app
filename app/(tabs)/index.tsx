@@ -1,5 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { useContext } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { AuthContext, AuthProvider } from '../../context/AuthContext';
 import { LocationProvider } from '../../context/LocationContext';
 
 // Ekranları import et
@@ -11,7 +15,7 @@ import RegisterScreen from '../../screens/RegisterScreen';
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
-// Auth Stack
+// Auth Stack (Giriş yapmamış kullanıcılar için)
 function AuthStack() {
   return (
     <Stack.Navigator
@@ -24,35 +28,43 @@ function AuthStack() {
       <Stack.Screen 
         name="Login" 
         component={LoginScreen}
-        options={{ headerShown: false }}
-       // options={{ title: 'Giriş Yap' }}
+        options={{ headerShown: false }} // Header'ı kaldır
       />
       <Stack.Screen 
         name="Register" 
         component={RegisterScreen}
-        options={{ title: 'Kayıt Ol' }}
+        options={{ 
+          title: 'Kayıt Ol',
+          headerStyle: { backgroundColor: '#2E7D32' }
+        }}
       />
     </Stack.Navigator>
   );
 }
 
-// Main Tabs
+// Main Tabs (Giriş yapmış kullanıcılar için)
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={{
-        tabBarActiveTintColor: '#1e3a5f',
+        tabBarActiveTintColor: '#2E7D32',
         tabBarInactiveTintColor: '#999',
-        headerStyle: { backgroundColor: '#1e3a5f' },
+        headerStyle: { backgroundColor: '#2E7D32' },
         headerTintColor: '#fff',
+        tabBarStyle: {
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
+        },
       }}
     >
       <Tab.Screen 
         name="Home" 
         component={HomeScreen}
         options={{ 
-          title: 'Ana Sayfa',
-          tabBarLabel: 'Ana Sayfa'
+          title: '',
+          tabBarLabel: 'Ana Sayfa',
+          tabBarIcon: ({ color }) => <TabIcon emoji="🏠" color={color} />
         }}
       />
       <Tab.Screen 
@@ -60,19 +72,62 @@ function MainTabs() {
         component={ProfileScreen}
         options={{ 
           title: 'Profil',
-          tabBarLabel: 'Profil'
+          tabBarLabel: 'Profil',
+          tabBarIcon: ({ color }) => <TabIcon emoji="👤" color={color} />
         }}
       />
     </Tab.Navigator>
   );
 }
 
-export default function App() {
-  const isLoggedIn = false;
-
+// Basit Tab Icon Component
+function TabIcon({ emoji, color }: { emoji: string; color: string }) {
   return (
-    <LocationProvider>
-      {isLoggedIn ? <MainTabs /> : <AuthStack />}
-    </LocationProvider>
+    <View style={styles.tabIcon}>
+      <Text style={{ fontSize: 24 }}>{emoji}</Text>
+    </View>
   );
 }
+
+// Navigation Manager (Kullanıcı durumuna göre)
+function Navigation() {
+  const { user, loading } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E7D32" />
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {user ? <MainTabs /> : <AuthStack />}
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <LocationProvider>
+          <Navigation />
+      </LocationProvider>
+    </AuthProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  tabIcon: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+

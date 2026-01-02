@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { signInWithEmailAndPassword } from 'firebase/auth';
@@ -47,13 +48,16 @@ export default function LoginScreen({ navigation }) {
       // Firebase ile giriş yap
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      
       console.log('✅ Giriş başarılı:', user.uid);
       
-      Alert.alert(
+      // Alert.alert kaldır - otomatik yönlenecek
+      console.log('✅ Giriş başarılı, ana ekrana yönlendiriliyor...');
+      // AuthContext otomatik olarak MainTabs'e yönlendirecek
+      
+      /* Alert.alert(
         'Başarılı! 🎉', 
         'Giriş yapıldı. Ana sayfaya yönlendiriliyorsunuz...'
-      );
+      ); */
       
       // TODO: Ana ekrana yönlendir (yarın yapacağız)
       
