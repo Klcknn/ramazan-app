@@ -70,7 +70,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   header: {
-    backgroundColor: '#2E7D32',
+    backgroundColor: '#00897B',
+    //backgroundColor: '#2E7D32',
     paddingVertical: 40,
     alignItems: 'center',
   },

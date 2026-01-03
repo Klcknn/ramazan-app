@@ -23,6 +23,7 @@ function AuthStack() {
         headerStyle: { backgroundColor: '#1e3a5f' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: 'bold' },
+        
       }}
     >
       <Stack.Screen 
@@ -33,10 +34,14 @@ function AuthStack() {
       <Stack.Screen 
         name="Register" 
         component={RegisterScreen}
-        options={{ 
+        options={{ headerShown: false }} // Header'ı kaldır
+
+       /*  
+       options={{ 
           title: 'Kayıt Ol',
           headerStyle: { backgroundColor: '#2E7D32' }
-        }}
+        }} 
+        */
       />
     </Stack.Navigator>
   );
@@ -49,6 +54,7 @@ function MainTabs() {
       screenOptions={{
         tabBarActiveTintColor: '#2E7D32',
         tabBarInactiveTintColor: '#999',
+        //headerStyle: { backgroundColor: 'transparent' },
         headerStyle: { backgroundColor: '#2E7D32' },
         headerTintColor: '#fff',
         tabBarStyle: {
@@ -62,6 +68,7 @@ function MainTabs() {
         name="Home" 
         component={HomeScreen}
         options={{ 
+          headerShown: false ,
           title: '',
           tabBarLabel: 'Ana Sayfa',
           tabBarIcon: ({ color }) => <TabIcon emoji="🏠" color={color} />
@@ -71,7 +78,8 @@ function MainTabs() {
         name="Profile" 
         component={ProfileScreen}
         options={{ 
-          title: 'Profil',
+          headerShown: false ,
+          title: '',
           tabBarLabel: 'Profil',
           tabBarIcon: ({ color }) => <TabIcon emoji="👤" color={color} />
         }}
