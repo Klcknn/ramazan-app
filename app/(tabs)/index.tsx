@@ -5,6 +5,8 @@ import { useContext } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { AuthContext, AuthProvider } from '../../context/AuthContext';
 import { LocationProvider } from '../../context/LocationContext';
+import QiblaScreen from '../../screens/QiblaScreen';
+import TesbihScreen from '../../screens/TesbihScreen';
 
 // Ekranları import et
 import HomeScreen from '../../screens/HomeScreen';
@@ -47,6 +49,40 @@ function AuthStack() {
   );
 }
 
+const HomeStack = createStackNavigator();
+
+function HomeStackScreen() {
+  return (
+    <HomeStack.Navigator>
+      <HomeStack.Screen 
+        name="HomeMain" 
+        component={HomeScreen}
+        options={{ headerShown: false }}
+      />
+      <HomeStack.Screen 
+        name="Tesbih" 
+        component={TesbihScreen}
+        options={{ 
+          title: 'Tesbih',
+          headerStyle: { backgroundColor: '#00897B' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' }
+        }}
+      />
+      <HomeStack.Screen 
+        name="Qibla" 
+        component={QiblaScreen}
+        options={{ 
+          title: 'Kıble Pusulası',
+          headerStyle: { backgroundColor: '#1565C0' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' }
+        }}
+      />
+    </HomeStack.Navigator>
+  );
+}
+
 // Main Tabs (Giriş yapmış kullanıcılar için)
 function MainTabs() {
   return (
@@ -66,7 +102,7 @@ function MainTabs() {
     >
       <Tab.Screen 
         name="Home" 
-        component={HomeScreen}
+        component={HomeStackScreen}
         options={{ 
           headerShown: false ,
           title: '',

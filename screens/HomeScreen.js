@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -12,6 +13,7 @@ export default function HomeScreen() {
   const [nextPrayer, setNextPrayer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false); // ← refreshing state = useState(false)
+  const navigation = useNavigation();
   const { user } = useContext(AuthContext);
   const { fullLocation, location } = useContext(LocationContext);
   
@@ -134,9 +136,9 @@ export default function HomeScreen() {
 
   // Özellikler
   const features = [
-    { name: 'Tesbih', icon: '📿' },
+    { name: 'Tesbih', icon: '📿', screen: 'Tesbih' }, // Tesbih ekranı eklendi.
     { name: 'Yakın Camiler', icon: '🕌' },
-    { name: 'Kıble', icon: '🧭' },
+    { name: 'Kıble', icon: '🧭', screen: 'Qibla' },  // Kıble ekranı eklendi.
     { name: 'Ramazan Takvimi', icon: '📅' },
     { name: 'Dua', icon: '🤲' },
     { name: 'Hadis', icon: '📖' },
@@ -245,6 +247,13 @@ export default function HomeScreen() {
               key={index} 
               style={styles.featureCard}
               activeOpacity={0.7}
+              onPress={() => {
+                if (feature.screen) {
+                  navigation.navigate(feature.screen);
+                } else {
+                  Alert.alert('Yakında', `${feature.name} özelliği çok yakında eklenecek!`);
+                }
+              }}
             >
               <Text style={styles.featureIcon}>{feature.icon}</Text>
               <Text style={styles.featureName}>{feature.name}</Text>
