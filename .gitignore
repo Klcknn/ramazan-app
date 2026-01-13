@@ -1,44 +1,117 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
-node_modules/
-
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
+####################################
+# 🔐 SECRETS / KEYS (KRİTİK)
+####################################
+*.env
+.env
+.env.*
+*.secret
+*.secrets
 *.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
 *.pem
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+# Google Cloud / Firebase
 serviceAccountKey.json
+firebase-service-account.json
+google-service-account.json
+gcp-key.json
+**/*service*account*.json
+
+####################################
+# 🔥 CONFIG DOSYALARI (ORTAM ÖZEL)
+####################################
+config/*.json
+config/*.env
+config/*.yaml
+config/*.yml
+config/*.toml
+config/*.ini
+
+####################################
+# 📦 NODE / EXPO / REACT NATIVE
+####################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+.expo/
+.expo-shared/
+.expo/*
+web-build/
+dist/
+build/
+coverage/
+
+####################################
+# 📱 ANDROID / IOS
+####################################
+android/.gradle/
+android/local.properties
+android/app/google-services.json
+android/app/*.keystore
+android/app/*.jks
+ios/Pods/
+ios/*.xcworkspace
+ios/*.xcodeproj
+ios/*.plist
+ios/*.entitlements
+
+####################################
+# ☁️ CLOUD / CI
+####################################
+terraform.tfstate
+terraform.tfstate.*
+.terraform/
+*.tfvars
+*.auto.tfvars
+
+####################################
+# 🐳 DOCKER
+####################################
+.env.docker
+docker-compose.override.yml
+
+####################################
+# 🧠 CACHE / TEMP
+####################################
+.cache/
+.tmp/
+.temp/
+*.log
+*.swp
+*.swo
+
+####################################
+# 💻 OS / IDE
+####################################
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
+
+####################################
+# 🧪 TEST / LOCAL
+####################################
+__tests__/
+*.test.*
+*.spec.*
+
+####################################
+# 🗑️ MISC
+####################################
+*.bak
+*.old
+*.backup
+bfg-*.jar
+ramazan-app.git/
+android/
+git-filter-repo
