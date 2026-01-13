@@ -7,6 +7,9 @@ import { AuthContext, AuthProvider } from '../../context/AuthContext';
 import { LocationProvider } from '../../context/LocationContext';
 import QiblaScreen from '../../screens/QiblaScreen';
 import TesbihScreen from '../../screens/TesbihScreen';
+import RamadanCalendarScreen from '../../screens/RamadanCalendarScreen';
+import NearestMosquesScreen from '../../screens/NearestMosquesScreen';
+import DuaScreen from '../../screens/DuaScreen';
 
 // Ekranları import et
 import HomeScreen from '../../screens/HomeScreen';
@@ -74,6 +77,39 @@ function HomeStackScreen() {
         component={QiblaScreen}
         options={{ 
           title: 'Kıble Pusulası',
+          headerStyle: { backgroundColor: '#1565C0' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' }
+        }}
+      />
+      <HomeStack.Screen 
+        name="RamadanCalendar" 
+        component={RamadanCalendarScreen}
+        options={{ 
+          headerShown: false,
+          title: 'RamadanCalendar',
+          headerStyle: { backgroundColor: '#1565C0' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' }
+        }}
+      /> 
+      <HomeStack.Screen 
+        name="NearestMosquesScreen" 
+        component={NearestMosquesScreen}
+        options={{ 
+          headerShown: false,
+          title: 'NearestMosquesScreen',
+          headerStyle: { backgroundColor: '#1565C0' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: 'bold' }
+        }}
+      />
+      <HomeStack.Screen 
+        name="DuaScreen" 
+        component={DuaScreen}
+        options={{ 
+          headerShown: false,
+          title: 'DuaScreen',
           headerStyle: { backgroundColor: '#1565C0' },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: 'bold' }

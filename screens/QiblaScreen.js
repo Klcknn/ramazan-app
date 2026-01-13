@@ -1,308 +1,181 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Magnetometer } from 'expo-sensors';
-import { useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
+import { useCallback, useContext, useEffect, useState } from 'react';
+import { Alert, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
 import { LocationContext } from '../context/LocationContext';
 import { calculateDistanceToKaaba, calculateQiblaDirection } from '../utils/qiblaCalculator';
 
-const { width, height } = Dimensions.get('window');
-const COMPASS_SIZE = width * 0.8;
+const { width } = Dimensions.get('window');
+const CIRCLE_SIZE = width * 0.7;
 
 export default function QiblaScreen() {
   const { location } = useContext(LocationContext);
-  const [magnetometer, setMagnetometer] = useState(0);
+  const [heading, setHeading] = useState(0);
   const [qiblaDirection, setQiblaDirection] = useState(0);
   const [distance, setDistance] = useState(0);
   const [subscription, setSubscription] = useState(null);
-  
-  const compassRotation = useRef(new Animated.Value(0)).current;
+  const [isCalibrated, setIsCalibrated] = useState(false);
 
   useEffect(() => {
-    // Konum varsa Kıble yönünü hesapla
     if (location?.coords) {
       const { latitude, longitude } = location.coords;
       const qibla = calculateQiblaDirection(latitude, longitude);
       const dist = calculateDistanceToKaaba(latitude, longitude);
-      
+
       setQiblaDirection(qibla);
       setDistance(dist);
-      
-      console.log('🕋 Kıble yönü:', qibla.toFixed(2), '°');
-      console.log('📏 Kabe mesafesi:', dist, 'km');
+
+      console.log('📍 Konum:', latitude.toFixed(4), longitude.toFixed(4));
+      console.log('🕋 Kıble:', qibla.toFixed(1), '°');
+      console.log('📏 Mesafe:', dist, 'km');
     } else {
       Alert.alert('Konum Gerekli', 'Kıble yönünü hesaplamak için konum izni gereklidir.');
     }
 
-    // Magnetometre başlat
-    _subscribe();
-
-    return () => {
-      _unsubscribe();
-    };
+    startMagnetometer();
+    return () => stopMagnetometer();
   }, [location]);
 
-  const _subscribe = () => {
-    Magnetometer.setUpdateInterval(100); // Her 100ms güncelle
-    
-    const sub = Magnetometer.addListener((data) => {
-      let angle = _angle(data);
-      
-      // Animasyonlu dönüş
-      Animated.spring(compassRotation, {
-        toValue: -angle,
-        useNativeDriver: true,
-        friction: 8,
-      }).start();
-      
-      setMagnetometer(angle);
-    });
-    
-    setSubscription(sub);
-  };
-
-  const _unsubscribe = () => {
-    subscription && subscription.remove();
-    setSubscription(null);
-  };
-
-  const _angle = (magnetometer) => {
-    if (magnetometer) {
-      let { x, y } = magnetometer;
-      
-      if (Math.atan2(y, x) >= 0) {
-        return Math.atan2(y, x) * (180 / Math.PI);
-      } else {
-        return (Math.atan2(y, x) + 2 * Math.PI) * (180 / Math.PI);
-      }
+  const startMagnetometer = useCallback(async () => {
+    const isAvailable = await Magnetometer.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('Hata', 'Cihazınızda pusula sensörü yok');
+      return;
     }
-    return 0;
-  };
 
-  // Kıble ok yönü (pusula + kıble farkı)
-  const qiblaArrowRotation = compassRotation.interpolate({
-    inputRange: [0, 360],
-    outputRange: [`${qiblaDirection}deg`, `${qiblaDirection + 360}deg`],
-  });
+    Magnetometer.setUpdateInterval(100);
+
+    const sub = Magnetometer.addListener((data) => {
+      let angle;
+
+      if (Platform.OS === 'android') {
+        angle = Math.atan2(-data.x, data.y);
+      } else {
+        angle = Math.atan2(data.y, data.x);
+      }
+
+      angle = angle * (180 / Math.PI);
+      angle = (angle + 360) % 360;
+      
+      setHeading(angle);
+      setIsCalibrated(true);
+    });
+
+    setSubscription(sub);
+  }, []);
+
+  const stopMagnetometer = useCallback(() => {
+    subscription?.remove();
+    setSubscription(null);
+  }, [subscription]);
+
+  // Kıble okunu döndür (telefonun yönüne göre)
+  const arrowRotation = ((qiblaDirection - heading) + 360) % 360;
+
+  // Kıble ile telefon arasındaki fark
+  const difference = Math.min(
+    Math.abs(qiblaDirection - heading),
+    360 - Math.abs(qiblaDirection - heading)
+  );
+
+  const isPointingToQibla = difference < 10;
+  const circleColor = isPointingToQibla ? '#4CAF50' : difference < 30 ? '#FFC107' : '#FF9800';
 
   return (
-    <LinearGradient
-      colors={['#1565C0', '#1976D2', '#42A5F5']}
-      style={styles.container}
-    >
+    <LinearGradient colors={['#1565C0', '#1976D2', '#42A5F5']} style={styles.container}>
       <View style={styles.content}>
         {/* Başlık */}
         <View style={styles.header}>
           <Text style={styles.title}>🕋 Kıble Yönü</Text>
-          <Text style={styles.subtitle}>Kabe&apos;ye olan yön ve mesafe</Text>
+          <Text style={styles.subtitle}>Telefonunuzu yavaşça çevirin</Text>
         </View>
 
-        {/* Mesafe Bilgisi */}
+        {/* Mesafe */}
         <View style={styles.distanceCard}>
           <Text style={styles.distanceLabel}>Kabe&apos;ye Mesafe</Text>
           <Text style={styles.distanceText}>{distance.toLocaleString('tr-TR')} km</Text>
         </View>
 
-        {/* Pusula */}
-        <View style={styles.compassContainer}>
-          <Animated.View
+        {/* Ana Gösterge */}
+        <View style={styles.indicatorContainer}>
+          {/* Çember */}
+          <View
             style={[
-              styles.compass,
+              styles.circle,
               {
-                transform: [{ rotate: compassRotation.interpolate({
-                  inputRange: [0, 360],
-                  outputRange: ['0deg', '360deg']
-                })}]
+                borderColor: circleColor,
+                borderWidth: isPointingToQibla ? 12 : 6,
               }
             ]}
           >
-            <Svg width={COMPASS_SIZE} height={COMPASS_SIZE}>
-              {/* Dış Çember */}
-              <Circle
-                cx={COMPASS_SIZE / 2}
-                cy={COMPASS_SIZE / 2}
-                r={COMPASS_SIZE / 2 - 10}
-                stroke="#FFFFFF"
-                strokeWidth="4"
-                fill="rgba(255, 255, 255, 0.1)"
-              />
+            <View style={styles.innerCircle}>
+              {isPointingToQibla ? (
+                <>
+                  <Text style={styles.checkmark}>✓</Text>
+                  <Text style={styles.statusText}>DOĞRU YÖN</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.kaabaIcon}>🕋</Text>
+                  <Text style={styles.degreeText}>{difference.toFixed(0)}°</Text>
+                  <Text style={styles.statusText}>Çevirin</Text>
+                </>
+              )}
+            </View>
+          </View>
 
-              {/* İç Çember */}
-              <Circle
-                cx={COMPASS_SIZE / 2}
-                cy={COMPASS_SIZE / 2}
-                r={COMPASS_SIZE / 2 - 40}
-                stroke="rgba(255, 255, 255, 0.3)"
-                strokeWidth="2"
-                fill="transparent"
-              />
+          {/* Kuzey İşareti (Sabit - Üstte) */}
+          <View style={styles.northIndicator}>
+            <Text style={styles.northText}>▲</Text>
+            <Text style={styles.northLabel}>KUZEY</Text>
+          </View>
 
-              {/* Yön İşaretleri */}
-              {/* Kuzey (N) */}
-              <G>
-                <Line
-                  x1={COMPASS_SIZE / 2}
-                  y1={20}
-                  x2={COMPASS_SIZE / 2}
-                  y2={50}
-                  stroke="#FF5252"
-                  strokeWidth="4"
-                />
-                <SvgText
-                  x={COMPASS_SIZE / 2}
-                  y={70}
-                  fontSize="24"
-                  fontWeight="bold"
-                  fill="#FF5252"
-                  textAnchor="middle"
-                >
-                  K
-                </SvgText>
-              </G>
-
-              {/* Doğu (E) */}
-              <G>
-                <Line
-                  x1={COMPASS_SIZE - 50}
-                  y1={COMPASS_SIZE / 2}
-                  x2={COMPASS_SIZE - 20}
-                  y2={COMPASS_SIZE / 2}
-                  stroke="#FFFFFF"
-                  strokeWidth="3"
-                />
-                <SvgText
-                  x={COMPASS_SIZE - 60}
-                  y={COMPASS_SIZE / 2 + 8}
-                  fontSize="20"
-                  fill="#FFFFFF"
-                  textAnchor="middle"
-                >
-                  D
-                </SvgText>
-              </G>
-
-              {/* Güney (S) */}
-              <G>
-                <Line
-                  x1={COMPASS_SIZE / 2}
-                  y1={COMPASS_SIZE - 50}
-                  x2={COMPASS_SIZE / 2}
-                  y2={COMPASS_SIZE - 20}
-                  stroke="#FFFFFF"
-                  strokeWidth="3"
-                />
-                <SvgText
-                  x={COMPASS_SIZE / 2}
-                  y={COMPASS_SIZE - 55}
-                  fontSize="20"
-                  fill="#FFFFFF"
-                  textAnchor="middle"
-                >
-                  G
-                </SvgText>
-              </G>
-
-              {/* Batı (W) */}
-              <G>
-                <Line
-                  x1={20}
-                  y1={COMPASS_SIZE / 2}
-                  x2={50}
-                  y2={COMPASS_SIZE / 2}
-                  stroke="#FFFFFF"
-                  strokeWidth="3"
-                />
-                <SvgText
-                  x={60}
-                  y={COMPASS_SIZE / 2 + 8}
-                  fontSize="20"
-                  fill="#FFFFFF"
-                  textAnchor="middle"
-                >
-                  B
-                </SvgText>
-              </G>
-
-              {/* Derece İşaretleri */}
-              {[...Array(36)].map((_, i) => {
-                const angle = (i * 10) * (Math.PI / 180);
-                const x1 = COMPASS_SIZE / 2 + Math.sin(angle) * (COMPASS_SIZE / 2 - 45);
-                const y1 = COMPASS_SIZE / 2 - Math.cos(angle) * (COMPASS_SIZE / 2 - 45);
-                const x2 = COMPASS_SIZE / 2 + Math.sin(angle) * (COMPASS_SIZE / 2 - 35);
-                const y2 = COMPASS_SIZE / 2 - Math.cos(angle) * (COMPASS_SIZE / 2 - 35);
-                
-                return (
-                  <Line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="rgba(255, 255, 255, 0.5)"
-                    strokeWidth={i % 9 === 0 ? "2" : "1"}
-                  />
-                );
-              })}
-            </Svg>
-          </Animated.View>
-
-          {/* Kıble Ok (Ortada Sabit) */}
-          <Animated.View
+          {/* Kıble Oku (DÖNMELİ) */}
+          <View
             style={[
               styles.qiblaArrow,
               {
-                transform: [{ rotate: qiblaArrowRotation }]
+                transform: [{ rotate: `${arrowRotation}deg` }]
               }
             ]}
           >
-            <Svg width={80} height={80} viewBox="0 0 80 80">
-              {/* Yeşil Ok */}
-              <Path
-                d="M 40 10 L 50 35 L 40 30 L 30 35 Z"
-                fill="#4CAF50"
-                stroke="#2E7D32"
-                strokeWidth="2"
-              />
-              {/* Ok Gövdesi */}
-              <Line
-                x1="40"
-                y1="30"
-                x2="40"
-                y2="60"
-                stroke="#4CAF50"
-                strokeWidth="4"
-              />
-              {/* Kabe İkonu */}
-              <SvgText
-                x="40"
-                y="22"
-                fontSize="16"
-                textAnchor="middle"
-              >
-                🕋
-              </SvgText>
-            </Svg>
-          </Animated.View>
+            <View style={styles.arrowContainer}>
+              <View style={styles.arrowHead} />
+              <View style={styles.arrowBody} />
+            </View>
+          </View>
         </View>
 
-        {/* Derece Gösterimi */}
+        {/* Bilgi Kartları */}
         <View style={styles.infoContainer}>
           <View style={styles.infoCard}>
             <Text style={styles.infoLabel}>Kıble Yönü</Text>
-            <Text style={styles.infoValue}>{qiblaDirection.toFixed(1)}°</Text>
+            <Text style={styles.infoValue}>{qiblaDirection.toFixed(0)}°</Text>
           </View>
           <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Pusula Yönü</Text>
-            <Text style={styles.infoValue}>{magnetometer.toFixed(1)}°</Text>
+            <Text style={styles.infoLabel}>Telefonun Yönü</Text>
+            <Text style={styles.infoValue}>{heading.toFixed(0)}°</Text>
           </View>
         </View>
 
-        {/* Kalibrasyon Uyarısı */}
-        <View style={styles.calibrationNote}>
-          <Text style={styles.calibrationText}>
-            💡 En doğru sonuç için telefonunuzu düz tutun ve metal objelerden uzak durun
+        {/* Durum Mesajı */}
+        <View style={[styles.statusCard, { backgroundColor: circleColor + '30' }]}>
+          <Text style={[styles.statusCardText, { color: circleColor }]}>
+            {isPointingToQibla 
+              ? '✅ Kıble yönüne bakıyorsunuz!' 
+              : difference < 30
+              ? '🟡 Yaklaşıyorsunuz, biraz daha çevirin'
+              : '🔴 Telefonunuzu yavaşça çevirerek kıble yönünü bulun'
+            }
           </Text>
         </View>
+
+        {/* Kalibrasyon */}
+        {!isCalibrated && (
+          <View style={styles.calibrationNote}>
+            <Text style={styles.calibrationText}>⚠️ Pusula kalibre ediliyor...</Text>
+          </View>
+        )}
       </View>
     </LinearGradient>
   );
@@ -314,16 +187,16 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingTop: 40,
+    paddingTop: 30,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 5,
@@ -334,78 +207,156 @@ const styles = StyleSheet.create({
   },
   distanceCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
+    paddingVertical: 12,
+    paddingHorizontal: 25,
     borderRadius: 20,
-    marginBottom: 30,
+    marginBottom: 25,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   distanceLabel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#E3F2FD',
     textAlign: 'center',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   distanceText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  compassContainer: {
-    width: COMPASS_SIZE,
-    height: COMPASS_SIZE,
+  indicatorContainer: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 25,
   },
-  compass: {
-    width: COMPASS_SIZE,
-    height: COMPASS_SIZE,
+  circle: {
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    borderRadius: CIRCLE_SIZE / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 6,
+    borderColor: '#FFC107',
+  },
+  innerCircle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  kaabaIcon: {
+    fontSize: 60,
+    marginBottom: 10,
+  },
+  checkmark: {
+    fontSize: 80,
+    color: '#4CAF50',
+    marginBottom: 10,
+  },
+  degreeText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 5,
+  },
+  statusText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  northIndicator: {
+    position: 'absolute',
+    top: -40,
+    alignItems: 'center',
+  },
+  northText: {
+    fontSize: 30,
+    color: '#FF5252',
+    fontWeight: 'bold',
+  },
+  northLabel: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    marginTop: -5,
   },
   qiblaArrow: {
     position: 'absolute',
-    width: 80,
-    height: 80,
-    justifyContent: 'center',
+    width: CIRCLE_SIZE,
+    height: CIRCLE_SIZE,
+    justifyContent: 'flex-start',
     alignItems: 'center',
+  },
+  arrowContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  arrowHead: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 15,
+    borderRightWidth: 15,
+    borderBottomWidth: 30,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#4CAF50',
+  },
+  arrowBody: {
+    width: 8,
+    height: 40,
+    backgroundColor: '#4CAF50',
+    marginTop: -2,
   },
   infoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   infoCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 12,
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 5,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#E3F2FD',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   infoValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  calibrationNote: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  statusCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     padding: 15,
     borderRadius: 12,
+    width: '100%',
+  },
+  statusCardText: {
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  calibrationNote: {
+    backgroundColor: 'rgba(255, 152, 0, 0.3)',
+    padding: 12,
+    borderRadius: 10,
     marginTop: 10,
   },
   calibrationText: {
     fontSize: 13,
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 18,
+    fontWeight: '600',
   },
 });

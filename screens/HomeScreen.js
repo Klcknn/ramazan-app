@@ -137,10 +137,10 @@ export default function HomeScreen() {
   // Özellikler
   const features = [
     { name: 'Tesbih', icon: '📿', screen: 'Tesbih' }, // Tesbih ekranı eklendi.
-    { name: 'Yakın Camiler', icon: '🕌' },
+    { name: 'Yakın Camiler', icon: '🕌', screen: 'NearestMosquesScreen' }, // Yakın Camiler ekranı eklendi.
     { name: 'Kıble', icon: '🧭', screen: 'Qibla' },  // Kıble ekranı eklendi.
-    { name: 'Ramazan Takvimi', icon: '📅' },
-    { name: 'Dua', icon: '🤲' },
+    { name: 'Ramazan Takvimi', icon: '📅', screen: 'RamadanCalendar' }, // RamazanCalendar ekranı eklendi.
+    { name: 'Dua', icon: '🤲', screen: 'DuaScreen' }, // Dua ekranı eklendi.
     { name: 'Hadis', icon: '📖' },
   ];
 

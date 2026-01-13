@@ -58,3 +58,5 @@ export const calculateQiblaDirection = (latitude, longitude) => {
   
     return Math.round(distance);
   };
+
+  
