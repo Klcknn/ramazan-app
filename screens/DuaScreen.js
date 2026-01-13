@@ -157,7 +157,7 @@ const DuaScreen = ({ navigation }) => {
       await AsyncStorage.setItem('favoriteDuas', JSON.stringify(newFavorites));
       setFavorites(newFavorites);
     } catch (error) {
-      console.error('Favoriler kaydedilemedi:', error);
+      console.error('Favoriler kaydedilemedi :', error);
     }
   };
 
