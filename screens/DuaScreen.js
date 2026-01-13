@@ -3,17 +3,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import React, { useEffect, useState } from 'react';
 import {
-    FlatList,
-    Modal,
-    ScrollView,
-    Share,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    useColorScheme,
-    View
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useColorScheme,
+  View,
 } from 'react-native';
+// Firebase Web SDK import
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { db } from '../config/firebase'; // Firebase config dosyanızın yolu
 
 const DuaScreen = ({ navigation }) => {
   const systemColorScheme = useColorScheme();
@@ -26,98 +30,117 @@ const DuaScreen = ({ navigation }) => {
   const [fontSize, setFontSize] = useState(16);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // Firebase state
+  const [duasData, setDuasData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
   // Dua kategorileri
   const categories = [
     { id: 'all', name: 'Tümü', icon: 'apps' },
-    { id: 'morning', name: 'Sabah', icon: 'sunny' },
-    { id: 'evening', name: 'Akşam', icon: 'moon' },
-    { id: 'prayer', name: 'Namaz', icon: 'pray' },
-    { id: 'meal', name: 'Yemek', icon: 'restaurant' },
-    { id: 'travel', name: 'Yolculuk', icon: 'car' },
-    { id: 'daily', name: 'Günlük', icon: 'calendar' },
+    { id: 'sabah', name: 'Sabah', icon: 'sunny' },
+    { id: 'aksam', name: 'Akşam', icon: 'moon' },
+    { id: 'namaz', name: 'Namaz', icon: 'book' },
+    { id: 'yemek', name: 'Yemek', icon: 'restaurant' },
+    { id: 'yolculuk', name: 'Yolculuk', icon: 'car' },
+    { id: 'uyku', name: 'Uyku', icon: 'bed' },
+    { id: 'gunluk', name: 'Günlük', icon: 'calendar' },
+    { id: 'kuran', name: 'Kuran', icon: 'book-outline' },
+    { id: 'peygamber', name: 'Peygamber', icon: 'star' },
   ];
 
-  // Örnek dualar (Gerçek uygulamada API'den gelir)
-  const duasData = [
-    {
-      id: '1',
-      category: 'morning',
-      title: 'Sabah Duası',
-      arabic: 'أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ',
-      turkish: 'Sabahladık, mülk Allahındır.',
-      pronunciation: 'Asbahnâ ve asbahal-mulku lillâh',
-      meaning: 'Allah a hamd ederek güne başlama duası.',
-    },
-    {
-      id: '2',
-      category: 'evening',
-      title: 'Akşam Duası',
-      arabic: 'أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ',
-      turkish: 'Akşamladık, mülk Allah ındır.',
-      pronunciation: 'Emseynâ ve emse l-mulku lillâh',
-      meaning: 'Allah a hamd ederek akşama girme duası.',
-    },
-    {
-      id: '3',
-      category: 'meal',
-      title: 'Yemek Öncesi Duası',
-      arabic: 'بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ',
-      turkish: 'Rahman ve Rahim olan Allah\'ın adıyla.',
-      pronunciation: 'Bismillâhirrahmânirrahîm',
-      meaning: 'Yemek yemeye başlamadan önce okunan dua.',
-    },
-    {
-      id: '4',
-      category: 'meal',
-      title: 'Yemek Sonrası Duası',
-      arabic: 'الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنَا وَسَقَانَا',
-      turkish: 'Bizi yedirip içiren Allah\'a hamdolsun.',
-      pronunciation: 'Elhamdulillâhillezî at\'amenâ ve sekānâ',
-      meaning: 'Yemek yedikten sonra şükür duası.',
-    },
-    {
-      id: '5',
-      category: 'travel',
-      title: 'Yolculuk Duası',
-      arabic: 'سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا',
-      turkish: 'Bunu bize boyun eğdiren Allah\'ı tesbih ederiz.',
-      pronunciation: 'Subhânallezî sehhara lenâ hâzâ',
-      meaning: 'Yolculuğa çıkarken okunan dua.',
-    },
-    {
-      id: '6',
-      category: 'prayer',
-      title: 'Ezan Duası',
-      arabic: 'اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ',
-      turkish: 'Allah\'ım! Bu tam davet ve kılınacak namazın Rabbi.',
-      pronunciation: 'Allâhumme rabbe hâzihi\'d-da\'veti\'t-tâmmeh',
-      meaning: 'Ezan sonrası okunan dua.',
-    },
-    {
-      id: '7',
-      category: 'daily',
-      title: 'Güne Başlarken',
-      arabic: 'اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْهَمِّ وَالْحَزَنِ',
-      turkish: 'Allah\'ım! Keder ve üzüntüden Sana sığınırım.',
-      pronunciation: 'Allâhumme innî e\'ûzu bike mine\'l-hemmi ve\'l-hazen',
-      meaning: 'Günlük sıkıntılardan korunma duası.',
-    },
-    {
-      id: '8',
-      category: 'daily',
-      title: 'Uyumadan Önce',
-      arabic: 'بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا',
-      turkish: 'Allah\'ım! Senin adınla ölür ve dirilirim.',
-      pronunciation: 'Bismike Allâhumme emûtu ve ahyâ',
-      meaning: 'Yatmadan önce okunan dua.',
-    },
-  ];
-
-  // Favorileri yükle
+  // Component mount olduğunda
   useEffect(() => {
     loadFavorites();
+    fetchDuasFromFirebase();
   }, []);
 
+  // Firebase'den duaları çek
+  const fetchDuasFromFirebase = async () => {
+    try {
+      setLoading(true);
+      console.log('🔥 Firebase\'den dualar çekiliyor...');
+
+      const duasCollection = collection(db, 'duas');
+      const q = query(duasCollection, orderBy('order', 'asc'));
+      const querySnapshot = await getDocs(q);
+
+      const duasArray = [];
+      querySnapshot.forEach((doc) => {
+        duasArray.push({
+          firestoreId: doc.id,
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      setDuasData(duasArray);
+      console.log(`✅ ${duasArray.length} dua başarıyla yüklendi`);
+    } catch (error) {
+      console.error('❌ Firebase hatası:', error);
+      console.error('Hata detayı:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kategoriye göre filtrele
+  const fetchDuasByCategory = async (categoryId) => {
+    if (categoryId === 'all') {
+      fetchDuasFromFirebase();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      console.log(`🔥 "${categoryId}" kategorisi yükleniyor...`);
+
+      // Tüm duaları çek ve client-side filtrele (index gerekmesin)
+      const duasCollection = collection(db, 'duas');
+      const querySnapshot = await getDocs(duasCollection);
+
+      const duasArray = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        // Kategoriye göre filtrele
+        if (data.category === categoryId) {
+          duasArray.push({
+            firestoreId: doc.id,
+            id: doc.id,
+            ...data,
+          });
+        }
+      });
+
+      // Client-side sıralama
+      duasArray.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+      setDuasData(duasArray);
+      console.log(`✅ ${duasArray.length} dua yüklendi`);
+    } catch (error) {
+      console.error('❌ Kategori yükleme hatası:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Kategori değiştir
+  const handleCategoryChange = (categoryName) => {
+    setSelectedCategory(categoryName);
+    const category = categories.find(c => c.name === categoryName);
+    if (category) {
+      fetchDuasByCategory(category.id);
+    }
+  };
+
+  // Yenile (Pull to refresh)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchDuasFromFirebase();
+    setRefreshing(false);
+  };
+
+  // Favorileri yükle
   const loadFavorites = async () => {
     try {
       const saved = await AsyncStorage.getItem('favoriteDuas');
@@ -146,12 +169,17 @@ const DuaScreen = ({ navigation }) => {
     saveFavorites(newFavorites);
   };
 
-  // Dua filtreleme
+  // Arama filtresi
   const filteredDuas = duasData.filter(dua => {
-    const matchesSearch = dua.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         dua.turkish.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Tümü' || dua.category === selectedCategory.toLowerCase();
-    return matchesSearch && matchesCategory;
+    if (!searchQuery) return true;
+
+    const query = searchQuery.toLowerCase();
+    return (
+      dua.title?.toLowerCase().includes(query) ||
+      dua.turkish?.toLowerCase().includes(query) ||
+      dua.arabic?.includes(searchQuery) ||
+      dua.pronunciation?.toLowerCase().includes(query)
+    );
   });
 
   // Sesli okuma
@@ -186,7 +214,7 @@ const DuaScreen = ({ navigation }) => {
 
   // Tema
   const theme = {
-    background: isDarkMode ? '#1a1a1a' : '#fff',
+    background: isDarkMode ? '#1a1a1a' : '#f5f5f5',
     cardBg: isDarkMode ? '#2d2d2d' : '#fff',
     text: isDarkMode ? '#fff' : '#333',
     textSecondary: isDarkMode ? '#aaa' : '#666',
@@ -198,7 +226,7 @@ const DuaScreen = ({ navigation }) => {
   // Dua kartı
   const renderDuaCard = ({ item }) => {
     const isFavorite = favorites.includes(item.id);
-    
+
     return (
       <TouchableOpacity
         style={[styles.duaCard, { backgroundColor: theme.cardBg, borderColor: theme.border }]}
@@ -216,10 +244,10 @@ const DuaScreen = ({ navigation }) => {
             </Text>
           </View>
           <TouchableOpacity onPress={() => toggleFavorite(item.id)}>
-            <Ionicons 
-              name={isFavorite ? 'heart' : 'heart-outline'} 
-              size={24} 
-              color={isFavorite ? '#ef4444' : theme.textSecondary} 
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={24}
+              color={isFavorite ? '#ef4444' : theme.textSecondary}
             />
           </TouchableOpacity>
         </View>
@@ -243,6 +271,21 @@ const DuaScreen = ({ navigation }) => {
     );
   };
 
+  // Loading ekranı
+  if (loading && duasData.length === 0) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+        <Text style={[styles.loadingText, { color: theme.text }]}>
+          Firebase den dualar yükleniyor...
+        </Text>
+        <Text style={[styles.loadingSubText, { color: theme.textSecondary }]}>
+          Lütfen bekleyin
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
@@ -250,7 +293,7 @@ const DuaScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Dualar</Text>
+        <Text style={styles.headerTitle}>Dualar ({duasData.length})</Text>
         <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)}>
           <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={24} color="#fff" />
         </TouchableOpacity>
@@ -274,51 +317,65 @@ const DuaScreen = ({ navigation }) => {
       </View>
 
       {/* Kategoriler */}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
-        contentContainerStyle={styles.categoriesContainer}
-      >
-        {categories.map((category) => (
-          <TouchableOpacity
-            key={category.id}
-            style={[
-              styles.categoryButton,
-              selectedCategory === category.name && styles.categoryButtonActive,
-              { borderColor: theme.border },
-            ]}
-            onPress={() => setSelectedCategory(category.name)}
-            activeOpacity={0.7}
-          >
-            <Ionicons 
-              name={category.icon} 
-              size={20} 
-              color={selectedCategory === category.name ? '#fff' : theme.text} 
-            />
-            <Text style={[
-              styles.categoryButtonText,
-              { color: selectedCategory === category.name ? '#fff' : theme.text }
-            ]}>
-              {category.name}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.categoriesWrapper}>
+        <FlatList
+          horizontal
+          data={categories}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={[
+                styles.categoryButton,
+                selectedCategory === item.name && styles.categoryButtonActive,
+                { borderColor: theme.border },
+              ]}
+              onPress={() => handleCategoryChange(item.name)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={item.icon}
+                size={18}
+                color={selectedCategory === item.name ? '#fff' : theme.text}
+              />
+              <Text
+                style={[
+                  styles.categoryButtonText,
+                  { color: selectedCategory === item.name ? '#fff' : theme.text },
+                ]}
+              >
+                {item.name}
+              </Text>
+            </TouchableOpacity>
+          )}
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoriesContainer}
+        />
+      </View>
 
       {/* Dua Listesi */}
       <FlatList
         data={filteredDuas}
         renderItem={renderDuaCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.firestoreId || item.id}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="book-open-variant" size={80} color={theme.textSecondary} />
             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
-              Dua bulunamadı
+              {searchQuery ? 'Aradığınız dua bulunamadı' : 'Henüz dua eklenmemiş'}
             </Text>
+            {!searchQuery && (
+              <TouchableOpacity
+                style={[styles.refreshButton, { backgroundColor: theme.primary }]}
+                onPress={handleRefresh}
+              >
+                <Ionicons name="refresh" size={20} color="#fff" />
+                <Text style={styles.refreshButtonText}>Yenile</Text>
+              </TouchableOpacity>
+            )}
           </View>
         }
       />
@@ -336,7 +393,7 @@ const DuaScreen = ({ navigation }) => {
               <>
                 {/* Modal Header */}
                 <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={2}>
                     {selectedDua.title}
                   </Text>
                   <TouchableOpacity onPress={() => setShowDuaModal(false)}>
@@ -365,11 +422,11 @@ const DuaScreen = ({ navigation }) => {
                   </View>
                 </View>
 
-                <ScrollView style={styles.modalScroll}>
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
                   {/* Arapça */}
                   <View style={styles.duaSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                      Arapça
+                      ARAPÇA
                     </Text>
                     <Text style={[styles.duaArabicFull, { color: theme.text, fontSize: fontSize + 8 }]}>
                       {selectedDua.arabic}
@@ -379,7 +436,7 @@ const DuaScreen = ({ navigation }) => {
                   {/* Okunuşu */}
                   <View style={styles.duaSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                      Okunuşu
+                      OKUNUŞU
                     </Text>
                     <Text style={[styles.duaPronunciation, { color: theme.text, fontSize: fontSize + 2 }]}>
                       {selectedDua.pronunciation}
@@ -389,7 +446,7 @@ const DuaScreen = ({ navigation }) => {
                   {/* Türkçe Meal */}
                   <View style={styles.duaSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                      Türkçe Anlamı
+                      TÜRKÇE ANLAMI
                     </Text>
                     <Text style={[styles.duaMeaning, { color: theme.text, fontSize: fontSize }]}>
                       {selectedDua.turkish}
@@ -399,7 +456,7 @@ const DuaScreen = ({ navigation }) => {
                   {/* Açıklama */}
                   <View style={styles.duaSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
-                      Açıklama
+                      AÇIKLAMA
                     </Text>
                     <Text style={[styles.duaExplanation, { color: theme.textSecondary, fontSize: fontSize }]}>
                       {selectedDua.meaning}
@@ -413,10 +470,10 @@ const DuaScreen = ({ navigation }) => {
                     style={[styles.actionButton, { backgroundColor: theme.primary }]}
                     onPress={() => speakDua(selectedDua)}
                   >
-                    <Ionicons 
-                      name={isSpeaking ? 'stop' : 'volume-high'} 
-                      size={24} 
-                      color="#fff" 
+                    <Ionicons
+                      name={isSpeaking ? 'stop' : 'volume-high'}
+                      size={24}
+                      color="#fff"
                     />
                     <Text style={styles.actionButtonText}>
                       {isSpeaking ? 'Durdur' : 'Sesli Oku'}
@@ -432,13 +489,16 @@ const DuaScreen = ({ navigation }) => {
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.actionButton, { backgroundColor: favorites.includes(selectedDua.id) ? '#ef4444' : '#6b7280' }]}
+                    style={[
+                      styles.actionButton,
+                      { backgroundColor: favorites.includes(selectedDua.id) ? '#ef4444' : '#6b7280' },
+                    ]}
                     onPress={() => toggleFavorite(selectedDua.id)}
                   >
-                    <Ionicons 
-                      name={favorites.includes(selectedDua.id) ? 'heart' : 'heart-outline'} 
-                      size={24} 
-                      color="#fff" 
+                    <Ionicons
+                      name={favorites.includes(selectedDua.id) ? 'heart' : 'heart-outline'}
+                      size={24}
+                      color="#fff"
                     />
                     <Text style={styles.actionButtonText}>
                       {favorites.includes(selectedDua.id) ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
@@ -457,6 +517,21 @@ const DuaScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  loadingSubText: {
+    marginTop: 8,
+    fontSize: 14,
   },
   header: {
     flexDirection: 'row',
@@ -489,28 +564,29 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
-  categoriesScroll: {
+  categoriesWrapper: {
     marginTop: 15,
+    marginBottom: 10,
   },
   categoriesContainer: {
     paddingHorizontal: 15,
-    paddingVertical: 8, // Butonların nefes alması için eklendi
+    paddingVertical: 8,
     gap: 10,
-    alignItems: 'center', // İçerikleri dikeyde ortalar
+    alignItems: 'center',
   },
   categoryButton: {
     marginTop: 1,
     marginBottom: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // İçeriği ortalar
+    justifyContent: 'center',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    height: 40, // Standart dokunma alanı (Touch Target) yüksekliği
+    height: 40,
     borderRadius: 20,
     borderWidth: 1,
-    gap: 8,
-    minWidth: 80, // Çok kısa kelimelerde butonun çok daralmasını önler
+    gap: 6,
+    minWidth: 80,
   },
   categoryButtonActive: {
     backgroundColor: '#14b8a6',
@@ -519,8 +595,8 @@ const styles = StyleSheet.create({
   categoryButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    textAlignVertical: 'center', // Android için metni dikeyde ortalar
-    includeFontPadding: false, // Android'deki varsayılan yazı tipi boşluğunu kaldırır
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   listContainer: {
     padding: 15,
@@ -585,6 +661,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     marginTop: 15,
+    marginBottom: 20,
+  },
+  refreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+  },
+  refreshButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -608,6 +698,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     flex: 1,
+    marginRight: 10,
   },
   fontSizeContainer: {
     flexDirection: 'row',
@@ -634,15 +725,16 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     paddingHorizontal: 20,
+    maxHeight: 400,
   },
   duaSection: {
     marginBottom: 20,
   },
   sectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     marginBottom: 10,
-    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   duaArabicFull: {
     fontWeight: '600',
