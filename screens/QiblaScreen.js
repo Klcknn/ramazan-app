@@ -96,53 +96,100 @@ export default function QiblaScreen() {
           <Text style={styles.distanceText}>{distance.toLocaleString('tr-TR')} km</Text>
         </View>
 
-        {/* Ana Gösterge */}
-        <View style={styles.indicatorContainer}>
-          {/* Çember */}
-          <View
-            style={[
-              styles.circle,
-              {
-                borderColor: circleColor,
-                borderWidth: isPointingToQibla ? 12 : 6,
-              }
-            ]}
-          >
-            <View style={styles.innerCircle}>
-              {isPointingToQibla ? (
-                <>
-                  <Text style={styles.checkmark}>✓</Text>
-                  <Text style={styles.statusText}>DOĞRU YÖN</Text>
-                </>
-              ) : (
-                <>
+        {/* Pusula Göstergesi */}
+        <View style={styles.compassContainer}>
+          {/* Dış Altın Çerçeve - Dinamik Renk */}
+          <View style={[styles.outerRing, { 
+            borderColor: circleColor,
+            borderWidth: isPointingToQibla ? 12 : 8,
+          }]}>
+            {/* İç Beyaz Daire */}
+            <View style={styles.compassFace}>
+              {/* Kıble Bulunduğunda Kabe İkonu */}
+              {isPointingToQibla && (
+                <View style={styles.kaabaIconContainer}>
                   <Text style={styles.kaabaIcon}>🕋</Text>
-                  <Text style={styles.degreeText}>{difference.toFixed(0)}°</Text>
-                  <Text style={styles.statusText}>Çevirin</Text>
-                </>
+                </View>
               )}
+
+              {/* Ana Yön İşaretleri */}
+              <View style={[styles.directionLabel, { top: 5 }]}>
+                <Text style={styles.degreeText}>0°</Text>
+              </View>
+              <View style={[styles.directionLabel, { right: 5 }]}>
+                <Text style={styles.degreeText}>90°</Text>
+              </View>
+              <View style={[styles.directionLabel, { bottom: 5 }]}>
+                <Text style={styles.degreeText}>180°</Text>
+              </View>
+              <View style={[styles.directionLabel, { left: 5 }]}>
+                <Text style={styles.degreeText}>270°</Text>
+              </View>
+
+              {/* Orta Çizgiler */}
+              <View style={[styles.centerLine, { transform: [{ rotate: '0deg' }] }]} />
+              <View style={[styles.centerLine, { transform: [{ rotate: '90deg' }] }]} />
+
+              {/* Derece İşaretleri (Her 30°) */}
+              {[...Array(12)].map((_, i) => {
+                const angle = i * 30;
+                return (
+                  <View
+                    key={i}
+                    style={[
+                      styles.tickMark,
+                      {
+                        transform: [
+                          { rotate: `${angle}deg` },
+                          { translateY: -CIRCLE_SIZE * 0.4 }
+                        ]
+                      }
+                    ]}
+                  />
+                );
+              })}
+
+              {/* Pusula İbresi (DÖNER) */}
+              <View
+                style={[
+                  styles.needleContainer,
+                  {
+                    transform: [{ rotate: `${arrowRotation}deg` }]
+                  }
+                ]}
+              >
+                {/* Kuzey Tarafı (Yeşil) */}
+                <View style={styles.needleNorth} />
+                {/* Güney Tarafı (Koyu) */}
+                <View style={styles.needleSouth} />
+              </View>
+
+              {/* Merkez Düğme */}
+              <View style={styles.centerButton}>
+                <View style={styles.centerButtonInner} />
+              </View>
             </View>
+
+            {/* Dış Çerçeve Degrade Efekti */}
+            <View style={styles.outerRingHighlight} />
           </View>
 
-          {/* Kuzey İşareti (Sabit - Üstte) */}
-          <View style={styles.northIndicator}>
+          {/* Yön Etiketleri (KUZEY, DOĞU, GÜNEY, BATI) */}
+          <View style={styles.northLabel}>
             <Text style={styles.northText}>▲</Text>
-            <Text style={styles.northLabel}>KUZEY</Text>
+            <Text style={styles.directionLabelText}>KUZEY</Text>
           </View>
 
-          {/* Kıble Oku (DÖNMELİ) */}
-          <View
-            style={[
-              styles.qiblaArrow,
-              {
-                transform: [{ rotate: `${arrowRotation}deg` }]
-              }
-            ]}
-          >
-            <View style={styles.arrowContainer}>
-              <View style={styles.arrowHead} />
-              <View style={styles.arrowBody} />
-            </View>
+          <View style={styles.eastLabel}>
+            <Text style={styles.directionLabelText}>DOĞU</Text>
+          </View>
+
+          <View style={styles.southLabel}>
+            <Text style={styles.directionLabelText}>GÜNEY</Text>
+          </View>
+
+          <View style={styles.westLabel}>
+            <Text style={styles.directionLabelText}>BATI</Text>
           </View>
         </View>
 
@@ -189,6 +236,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 30,
     paddingHorizontal: 20,
+    paddingBottom: 20,
     alignItems: 'center',
   },
   header: {
@@ -226,95 +274,176 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     textAlign: 'center',
   },
-  indicatorContainer: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
+  compassContainer: {
+    width: CIRCLE_SIZE + 40,
+    height: CIRCLE_SIZE + 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 20,
   },
-  circle: {
+  outerRing: {
     width: CIRCLE_SIZE,
     height: CIRCLE_SIZE,
     borderRadius: CIRCLE_SIZE / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#D4AF37',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 6,
-    borderColor: '#FFC107',
+    borderWidth: 8,
+    borderColor: '#FF9800',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
-  innerCircle: {
+  outerRingHighlight: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    right: 4,
+    height: CIRCLE_SIZE * 0.3,
+    borderTopLeftRadius: CIRCLE_SIZE / 2,
+    borderTopRightRadius: CIRCLE_SIZE / 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  compassFace: {
+    width: CIRCLE_SIZE - 30,
+    height: CIRCLE_SIZE - 30,
+    borderRadius: (CIRCLE_SIZE - 30) / 2,
+    backgroundColor: '#F5F5DC',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#C0A060',
+  },
+  kaabaIconContainer: {
+    position: 'absolute',
+    zIndex: 10,
   },
   kaabaIcon: {
-    fontSize: 60,
-    marginBottom: 10,
-  },
-  checkmark: {
     fontSize: 80,
-    color: '#4CAF50',
-    marginBottom: 10,
+  },
+  directionLabel: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   degreeText: {
-    fontSize: 48,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 5,
+    color: '#5D4E37',
   },
-  statusText: {
-    fontSize: 18,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  northIndicator: {
+  centerLine: {
     position: 'absolute',
-    top: -40,
+    width: CIRCLE_SIZE - 50,
+    height: 1,
+    backgroundColor: '#C0A060',
+    opacity: 0.3,
+  },
+  tickMark: {
+    position: 'absolute',
+    width: 2,
+    height: 10,
+    backgroundColor: '#8B7355',
+  },
+  needleContainer: {
+    position: 'absolute',
+    width: CIRCLE_SIZE - 40,
+    height: CIRCLE_SIZE - 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  needleNorth: {
+    position: 'absolute',
+    top: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: CIRCLE_SIZE * 0.35,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#2E7D32',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  needleSouth: {
+    position: 'absolute',
+    bottom: 10,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderTopWidth: CIRCLE_SIZE * 0.35,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#5D4E37',
+    opacity: 0.6,
+  },
+  centerButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#D4AF37',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#B8941E',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 5,
+  },
+  centerButtonInner: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#C9A236',
+    borderWidth: 1,
+    borderColor: '#A68B2E',
+  },
+  northLabel: {
+    position: 'absolute',
+    top: -25,
     alignItems: 'center',
   },
   northText: {
-    fontSize: 30,
+    fontSize: 24,
     color: '#FF5252',
     fontWeight: 'bold',
   },
-  northLabel: {
-    fontSize: 12,
+  directionLabelText: {
+    fontSize: 13,
     color: '#FFFFFF',
     fontWeight: 'bold',
-    marginTop: -5,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
-  qiblaArrow: {
+  eastLabel: {
     position: 'absolute',
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
-    justifyContent: 'flex-start',
+    right: -12,
     alignItems: 'center',
   },
-  arrowContainer: {
+  southLabel: {
+    position: 'absolute',
+    bottom: -1,
     alignItems: 'center',
-    marginTop: 20,
   },
-  arrowHead: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 15,
-    borderRightWidth: 15,
-    borderBottomWidth: 30,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    borderBottomColor: '#4CAF50',
-  },
-  arrowBody: {
-    width: 8,
-    height: 40,
-    backgroundColor: '#4CAF50',
-    marginTop: -2,
+  westLabel: {
+    position: 'absolute',
+    left: -12,
+    alignItems: 'center',
   },
   infoContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     width: '100%',
-    marginBottom: 15,
+    marginBottom: 8,
   },
   infoCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -328,7 +457,7 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 11,
     color: '#E3F2FD',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   infoValue: {
     fontSize: 18,
@@ -337,7 +466,7 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 15,
+    padding: 10,
     borderRadius: 12,
     width: '100%',
   },

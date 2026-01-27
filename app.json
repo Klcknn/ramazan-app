@@ -62,11 +62,25 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Yakındaki camileri göstermek için konumunuza ihtiyacımız var."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#00897B",
+          "sounds": ["./assets/sounds/adhan.mp3"]
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#00897B",
+      "androidMode": "default",
+      "androidCollapsedTitle": "Namaz Vakti"
     }
   }
 }
