@@ -1,7 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
 import { initializeNotifications } from '../services/Notificationrenewalhelper ';
@@ -30,6 +31,14 @@ export default function HomeScreen() {
   const [showDuaModal, setShowDuaModal] = useState(false);
   const [showHadisModal, setShowHadisModal] = useState(false);
   
+  // Favori durumları
+  const [isDuaFavorite, setIsDuaFavorite] = useState(false);
+  const [isHadisFavorite, setIsHadisFavorite] = useState(false);
+
+  // ViewShot ref'leri
+  const duaViewShotRef = useState(null);
+  const hadisViewShotRef = useState(null);
+  
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -54,6 +63,12 @@ export default function HomeScreen() {
     loadDailyContent();
   }, []);
 
+  // Favori durumlarını kontrol et
+  useEffect(() => {
+    if (dailyDua) checkIfFavorite('dua', dailyDua.title);
+    if (dailyHadis) checkIfFavorite('hadis', dailyHadis.title);
+  }, [dailyDua, dailyHadis]);
+
   const loadDailyContent = async () => {
     try {
       setContentLoading(true);
@@ -73,6 +88,84 @@ export default function HomeScreen() {
       );
     } finally {
       setContentLoading(false);
+    }
+  };
+
+  // Favori kontrol
+  const checkIfFavorite = async (type, title) => {
+    try {
+      const favorites = await AsyncStorage.getItem('favorites');
+      if (favorites) {
+        const favList = JSON.parse(favorites);
+        const isFav = favList.some(item => item.type === type && item.title === title);
+        if (type === 'dua') setIsDuaFavorite(isFav);
+        if (type === 'hadis') setIsHadisFavorite(isFav);
+      }
+    } catch (error) {
+      console.error('Favori kontrol hatası:', error);
+    }
+  };
+
+  // Favorilere ekle/çıkar
+  const toggleFavorite = async (type, content) => {
+    try {
+      const favorites = await AsyncStorage.getItem('favorites');
+      let favList = favorites ? JSON.parse(favorites) : [];
+      
+      const existingIndex = favList.findIndex(
+        item => item.type === type && item.title === content.title
+      );
+
+      if (existingIndex >= 0) {
+        // Favorilerden çıkar
+        favList.splice(existingIndex, 1);
+        Alert.alert('Başarılı', 'Favorilerden kaldırıldı');
+        if (type === 'dua') setIsDuaFavorite(false);
+        if (type === 'hadis') setIsHadisFavorite(false);
+      } else {
+        // Favorilere ekle
+        favList.push({
+          type,
+          title: content.title,
+          content: content,
+          addedAt: new Date().toISOString()
+        });
+        Alert.alert('Başarılı', 'Favorilere eklendi');
+        if (type === 'dua') setIsDuaFavorite(true);
+        if (type === 'hadis') setIsHadisFavorite(true);
+      }
+
+      await AsyncStorage.setItem('favorites', JSON.stringify(favList));
+    } catch (error) {
+      console.error('Favori ekleme hatası:', error);
+      Alert.alert('Hata', 'Favorilere eklenirken bir hata oluştu');
+    }
+  };
+
+  // Paylaşma fonksiyonu
+  const handleShare = async (type, content) => {
+    try {
+      let message = '';
+      
+      if (type === 'dua') {
+        message = `🤲 ${content.title}\n\n`;
+        message += `📖 ${content.arabic}\n\n`;
+        message += `🔤 ${content.pronunciation}\n\n`;
+        message += `🇹🇷 ${content.turkish}\n\n`;
+        message += `Kaynak: ${content.source || 'Bilinmiyor'}`;
+      } else {
+        message = `📖 ${content.title}\n\n`;
+        message += `📜 ${content.arabic}\n\n`;
+        message += `🇹🇷 ${content.turkish}\n\n`;
+        message += `Kaynak: ${content.source || 'Bilinmiyor'}`;
+      }
+
+      await Share.share({
+        message: message,
+        title: type === 'dua' ? 'Günün Duası' : 'Günün Hadisi'
+      });
+    } catch (error) {
+      console.error('Paylaşım hatası:', error);
     }
   };
 
@@ -101,7 +194,6 @@ export default function HomeScreen() {
         const next = getNextPrayer(times);
         setNextPrayer(next);
         
-        // ✅ DEĞİŞİKLİK: schedulePrayerNotifications yerine initializeNotifications
         await initializeNotifications(times);
         
         console.log('✅ Namaz vakitleri alındı:', times);
@@ -189,17 +281,18 @@ export default function HomeScreen() {
     { name: 'Yatsı', time: prayerTimes.Isha?.substring(0, 5), icon: '🌙' },
   ] : [];
 
-  // 3x3 Grid için özellikler
+  // ✅ 5x2 Grid için 10 özellik
   const features = [
     { name: 'Tesbih', icon: '📿', screen: 'Tesbih' },
     { name: 'Yakın Camiler', icon: '🕌', screen: 'NearestMosquesScreen' },
     { name: 'Kıble', icon: '🧭', screen: 'QiblaScreen' },
-    { name: 'Ramazan', icon: '🌙', screen: 'RamadanCalendar' },
-    { name: 'Dua', icon: '🤲', screen: 'DuaScreen' },
-    { name: 'Hadis', icon: '📖', screen: 'HadisScreen' },
+    { name: 'Ramazan Ayı', icon: '🌙', screen: 'RamadanCalendar' },
+    { name: 'Dualar', icon: '🤲', screen: 'DuaScreen' },
+    { name: 'Hadisler', icon: '📖', screen: 'HadisScreen' },
     { name: 'Dini Günler', icon: '📅', screen: 'ImportantDaysScreen' },
     { name: 'Namazlar', icon: '🕋', screen: null },
     { name: 'Kuran', icon: '📜', screen: null },
+    { name: 'Cuma Hutbeleri', icon: '💚', screen: null },
   ];
 
   if (loading && !prayerTimes) {
@@ -245,7 +338,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Prayer Times - Sadece aktif olan ÇOK BELİRGİN */}
         <View style={styles.prayerTimesContainer}>
           {prayerTimesArray.map((prayer, index) => {
             const isCurrent = prayer.name === currentPrayerName;
@@ -298,7 +390,7 @@ export default function HomeScreen() {
           <Text style={styles.featuresTitle}>TÜM ÖZELLİKLER</Text>
         </View>
 
-        {/* 3x3 Grid Özellikler */}
+        {/* ✅ 5x2 Grid */}
         <View style={styles.featuresGrid}>
           {features.map((feature, index) => (
             <TouchableOpacity 
@@ -321,7 +413,7 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Günlük İçerik Kartları */}
+        {/* ✅ Ortalanmış başlık */}
         <View style={styles.dailyContentSection}>
           <Text style={styles.sectionTitle}>GÜNÜN İÇERİĞİ</Text>
           
@@ -332,7 +424,6 @@ export default function HomeScreen() {
             </View>
           ) : (
             <>
-              {/* Günlük Dua */}
               {dailyDua && (
                 <TouchableOpacity 
                   style={styles.dailyCard}
@@ -359,7 +450,6 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Günlük Hadis */}
               {dailyHadis && (
                 <TouchableOpacity 
                   style={styles.dailyCard}
@@ -393,7 +483,7 @@ export default function HomeScreen() {
         <View style={{ height: 120 }} />
       </ScrollView>
 
-      {/* Dua Modal */}
+      {/* ✅ Dua Modal - Paylaşma ve Favori ile */}
       <Modal
         visible={showDuaModal}
         animationType="slide"
@@ -408,6 +498,7 @@ export default function HomeScreen() {
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
             </View>
+            
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionLabel}>ARAPÇA</Text>
@@ -428,6 +519,30 @@ export default function HomeScreen() {
                 </View>
               )}
             </ScrollView>
+
+            {/* ✅ Paylaşma ve Favori Butonları */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.favoriteButton]}
+                onPress={() => toggleFavorite('dua', dailyDua)}
+              >
+                <Text style={styles.actionButtonIcon}>
+                  {isDuaFavorite ? '❤️' : '🤍'}
+                </Text>
+                <Text style={styles.actionButtonText}>
+                  {isDuaFavorite ? 'Favorilerde' : 'Favorilere Ekle'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={() => handleShare('dua', dailyDua)}
+              >
+                <Text style={styles.actionButtonIcon}>📤</Text>
+                <Text style={styles.actionButtonText}>Paylaş</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity 
               style={styles.fullDetailButton}
               onPress={() => {
@@ -441,7 +556,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Hadis Modal */}
+      {/* ✅ Hadis Modal - Paylaşma ve Favori ile */}
       <Modal
         visible={showHadisModal}
         animationType="slide"
@@ -456,6 +571,7 @@ export default function HomeScreen() {
                 <Text style={styles.closeButton}>✕</Text>
               </TouchableOpacity>
             </View>
+            
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionLabel}>ARAPÇA</Text>
@@ -476,6 +592,30 @@ export default function HomeScreen() {
                 </View>
               )}
             </ScrollView>
+
+            {/* ✅ Paylaşma ve Favori Butonları */}
+            <View style={styles.actionButtonsContainer}>
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.favoriteButton]}
+                onPress={() => toggleFavorite('hadis', dailyHadis)}
+              >
+                <Text style={styles.actionButtonIcon}>
+                  {isHadisFavorite ? '❤️' : '🤍'}
+                </Text>
+                <Text style={styles.actionButtonText}>
+                  {isHadisFavorite ? 'Favorilerde' : 'Favorilere Ekle'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.actionButton, styles.shareButton]}
+                onPress={() => handleShare('hadis', dailyHadis)}
+              >
+                <Text style={styles.actionButtonIcon}>📤</Text>
+                <Text style={styles.actionButtonText}>Paylaş</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity 
               style={styles.fullDetailButton}
               onPress={() => {
@@ -647,47 +787,49 @@ const styles = StyleSheet.create({
     color: '#333',
     letterSpacing: 1,
   },
+  // ✅ 5x2 Grid Styles
   featuresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 15,
+    paddingHorizontal: 12,
     justifyContent: 'space-between',
     marginTop: 10,
   },
   featureCard: {
-    width: (width - 50) / 3,
-    height: 105,
+    width: (width - 44) / 5, // 5 sütun
+    height: 85,
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
-    marginBottom: 15,
+    padding: 8,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#F5F5F5',
   },
   featureIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   featureIcon: {
-    fontSize: 26,
+    fontSize: 20,
   },
   featureName: {
-    fontSize: 11,
+    fontSize: 9,
     color: '#333',
     fontWeight: '700',
     textAlign: 'center',
+    lineHeight: 11,
   },
   loadingContainer: {
     flex: 1,
@@ -709,12 +851,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 25,
   },
+  // ✅ Ortalanmış başlık
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#333',
     letterSpacing: 1,
     marginBottom: 15,
+    textAlign: 'center', // Ortalandı
   },
   dailyCard: {
     backgroundColor: '#FFFFFF',
@@ -828,7 +972,7 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     paddingHorizontal: 20,
-    maxHeight: 450,
+    maxHeight: 350,
   },
   modalSection: {
     marginBottom: 20,
@@ -867,6 +1011,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     lineHeight: 24,
+  },
+  // ✅ Yeni: Paylaşma ve Favori Butonları
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  favoriteButton: {
+    backgroundColor: '#FFE0E6',
+    borderWidth: 1,
+    borderColor: '#FFB3C1',
+  },
+  shareButton: {
+    backgroundColor: '#E3F2FD',
+    borderWidth: 1,
+    borderColor: '#90CAF9',
+  },
+  actionButtonIcon: {
+    fontSize: 18,
+  },
+  actionButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#333',
   },
   fullDetailButton: {
     backgroundColor: '#00897B',

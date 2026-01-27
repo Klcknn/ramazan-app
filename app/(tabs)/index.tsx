@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LocationProvider } from '../../context/LocationContext';
 import DuaScreen from '../../screens/DuaScreen';
+import FavoritesScreen from '../../screens/FavoritesScreen';
 import HadisScreen from '../../screens/HadisScreen';
 import HomeScreen from '../../screens/HomeScreen';
 import ImportantDaysScreen from '../../screens/ImportantDaysScreen';
@@ -119,6 +120,14 @@ function HomeStackScreen() {
         options={{ 
           headerShown: false,
           title: 'Önemli Dini Günler',
+        }}
+      />
+      <HomeStack.Screen 
+        name="FavoritesScreen" 
+        component={FavoritesScreen}
+        options={{ 
+          headerShown: false,
+          title: 'Favorilerim',
         }}
       />
     </HomeStack.Navigator>

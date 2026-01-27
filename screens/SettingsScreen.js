@@ -22,10 +22,22 @@ export default function SettingsScreen({ navigation }) {
   // Dil
   const [selectedLanguage, setSelectedLanguage] = useState('Türkçe');
 
+  // ✅ YENİ: Favori sayısı
+  const [favoritesCount, setFavoritesCount] = useState(0);
+
   // Ayarları yükle
   useEffect(() => {
     loadSettings();
+    loadFavoritesCount();
   }, []);
+
+  // ✅ YENİ: Favori sayısını yenile
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadFavoritesCount();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const loadSettings = async () => {
     const settings = await getNotificationSettings();
@@ -36,6 +48,22 @@ export default function SettingsScreen({ navigation }) {
     // Önemli günler bildirimi ayarını yükle
     const importantDaysEnabled = await AsyncStorage.getItem('important_days_notifications_enabled');
     setImportantDaysNotifications(importantDaysEnabled !== 'false');
+  };
+
+  // ✅ YENİ: Favori sayısını yükle
+  const loadFavoritesCount = async () => {
+    try {
+      const favorites = await AsyncStorage.getItem('favorites');
+      if (favorites) {
+        const favList = JSON.parse(favorites);
+        setFavoritesCount(favList.length);
+      } else {
+        setFavoritesCount(0);
+      }
+    } catch (error) {
+      console.error('Favori sayısı yüklenirken hata:', error);
+      setFavoritesCount(0);
+    }
   };
 
   // Bildirim toggle handler
@@ -256,6 +284,41 @@ export default function SettingsScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* ✅ YENİ: Favoriler Bölümü */}
+        <View style={styles.section}>
+          <View style={styles.sectionTitleContainer}>
+            <Text style={styles.sectionIcon}>❤️</Text>
+            <Text style={styles.sectionTitle}>Favoriler</Text>
+          </View>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              activeOpacity={0.7}
+              onPress={() => navigation.navigate('FavoritesScreen')}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Text style={styles.settingIcon}>❤️</Text>
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text style={styles.settingLabel}>Favorilerim</Text>
+                  <Text style={styles.settingDescription}>
+                    Kaydettiğiniz dua ve hadisler
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.menuRight}>
+                {favoritesCount > 0 && (
+                  <View style={styles.favoriteBadge}>
+                    <Text style={styles.favoriteBadgeText}>{favoritesCount}</Text>
+                  </View>
+                )}
+                <Text style={styles.chevron}>›</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Bildirim Ayarları */}
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
@@ -579,6 +642,20 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: 'bold',
     color: '#00897B',
+  },
+  // ✅ YENİ: Favori badge stili
+  favoriteBadge: {
+    backgroundColor: '#FF4081',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 24,
+    alignItems: 'center',
+  },
+  favoriteBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   chevron: {
     fontSize: 24,
