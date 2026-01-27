@@ -4,7 +4,8 @@ import { useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
-import { removeNotificationListeners, schedulePrayerNotifications, setupNotificationListeners } from '../services/notificationService';
+import { initializeNotifications } from '../services/Notificationrenewalhelper ';
+import { removeNotificationListeners, setupNotificationListeners } from '../services/notificationService';
 import { getNextPrayer, getPrayerTimes } from '../services/prayerTimesAPI';
 
 const { width } = Dimensions.get('window');
@@ -100,7 +101,8 @@ export default function HomeScreen() {
         const next = getNextPrayer(times);
         setNextPrayer(next);
         
-        await schedulePrayerNotifications(times);
+        // ✅ DEĞİŞİKLİK: schedulePrayerNotifications yerine initializeNotifications
+        await initializeNotifications(times);
         
         console.log('✅ Namaz vakitleri alındı:', times);
       } else {
@@ -563,6 +565,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     position: 'relative',
+    marginBottom: 2,
   },
   currentPrayerCard: {
     backgroundColor: '#4CAF50',
@@ -574,6 +577,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 8,
     elevation: 8,
+    marginBottom: 5,
   },
   prayerIcon: {
     fontSize: 22,
@@ -585,26 +589,26 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   prayerName: {
-    fontSize: 9,
+    fontSize: 13,
     color: '#E0F2F1',
     marginBottom: 3,
-    fontWeight: '500',
-    opacity: 0.8,
+    fontWeight: '700',
+    opacity: 1,
   },
   currentPrayerName: {
-    fontSize: 10,
+    fontSize: 13,
     fontWeight: '800',
     color: '#FFFFFF',
     opacity: 1,
   },
   prayerTime: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
-    opacity: 0.9,
+    opacity: 1,
   },
   currentPrayerTime: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#FFFFFF',
     opacity: 1,

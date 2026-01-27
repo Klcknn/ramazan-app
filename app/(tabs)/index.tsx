@@ -1,9 +1,8 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { LocationProvider } from '../../context/LocationContext';
 import DuaScreen from '../../screens/DuaScreen';
 import HadisScreen from '../../screens/HadisScreen';
@@ -16,20 +15,36 @@ import SettingsScreen from '../../screens/SettingsScreen';
 import SplashScreen from '../../screens/SplashScreen';
 import TesbihScreen from '../../screens/TesbihScreen';
 
-const [location, setLocation] = useState<Location.LocationObject | null>(null);
-
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
+/* 
 // Bildirim ayarları
 Notifications.setNotificationHandler({
   handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
-    shouldShowBanner: true,   // Bildirim ekranda banner olarak gözüksün
-    shouldShowList: true,     // Bildirim bildirim merkezine düşsün
-    shouldPlaySound: true,    // Ses çalsın
-    shouldSetBadge: true,     // App icon badge güncellensin
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
   }),
-});
+}); 
+*/
+
+// ✅ Bildirim ayarları - Expo Go uyarısını önlemek için koşullu
+// Yerel bildirimler (local notifications) hala çalışır
+try {
+  Notifications.setNotificationHandler({
+    handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+} catch {
+  // Expo Go'da hata vermesini önle
+  console.log('Notification handler ayarlanamadı (Expo Go)');
+}
 
 // Home Stack
 const HomeStack = createStackNavigator();
@@ -238,106 +253,25 @@ function MainTabs() {
 // Main App Component
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [appIsReady, setAppIsReady] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [fullLocation, setFullLocation] = useState('Konum alınıyor...');
 
   useEffect(() => {
-    prepareApp();
-  }, []);
-
-  const prepareApp = async () => {
-    try {
-      // Konum ve bildirim izinlerini al
-      await requestPermissions();
-      
-      // Splash ekranını göster
-      setTimeout(() => {
-        setShowSplash(false);
-        setAppIsReady(true);
-      }, 3000);
-    } catch (error) {
-      console.error('Uygulama başlatma hatası:', error);
+    // Splash ekranını 3 saniye göster
+    const timer = setTimeout(() => {
       setShowSplash(false);
-      setAppIsReady(true);
-    }
-  };
+    }, 3000);
 
-  const requestPermissions = async () => {
-    try {
-      // Konum izni iste
-      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-      
-      if (locationStatus !== 'granted') {
-        Alert.alert(
-          'Konum İzni Gerekli',
-          'Namaz vakitlerini gösterebilmek için konum izni gereklidir. Lütfen ayarlardan konum iznini aktif edin.',
-          [{ text: 'Tamam' }]
-        );
-        setFullLocation('Konum izni verilmedi');
-        return;
-      }
-
-      console.log('✅ Konum izni verildi');
-
-      // Konumu al
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      
-      setLocation(currentLocation);
-
-      // Şehir ve ülke bilgisini al
-      try {
-        const [address] = await Location.reverseGeocodeAsync({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        });
-
-        if (address) {
-          const locationText = `${address.city || address.district || ''}, ${address.country || ''}`.trim();
-          setFullLocation(locationText || 'Konum bilgisi alınamadı');
-          console.log('📍 Konum:', locationText);
-        }
-      } catch (geoError) {
-        console.error('Geocoding hatası:', geoError);
-        setFullLocation('Konum bilgisi alınamadı');
-      }
-
-      // Bildirim izni iste
-      const { status: notificationStatus } = await Notifications.requestPermissionsAsync();
-      
-      if (notificationStatus !== 'granted') {
-        console.log('⚠️ Bildirim izni verilmedi');
-      } else {
-        console.log('✅ Bildirim izni verildi');
-      }
-
-    } catch (error) {
-      console.error('İzin hatası:', error);
-      Alert.alert('Hata', 'Konum alınırken bir hata oluştu.');
-      setFullLocation('Konum alınamadı');
-    }
-  };
+    return () => clearTimeout(timer);
+  }, []);
 
   // Splash ekranı göster
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  // Uygulama hazırlanıyor
-  if (!appIsReady) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00897B" />
-        <Text style={styles.loadingText}>Uygulama hazırlanıyor...</Text>
-      </View>
-    );
-  }
-
-  // Ana uygulama
+  // ✅ LocationProvider kendi içinde state yönetiyor
+  // Artık App.tsx'de location state'leri tutmamıza gerek yok
   return (
-    <LocationProvider value={{ location, fullLocation }}>
+    <LocationProvider>
       <MainTabs />
     </LocationProvider>
   );
@@ -408,17 +342,5 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     backgroundColor: '#00897B',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-  },
-  loadingText: {
-    marginTop: 15,
-    fontSize: 16,
-    color: '#666',
-    fontWeight: '600',
   },
 });

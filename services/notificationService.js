@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Alert } from 'react-native';
+import { Alert, Platform, Linking } from 'react-native';
 
 // Bildirim davranışını ayarla
 Notifications.setNotificationHandler({
@@ -21,14 +21,44 @@ const STORAGE_KEYS = {
 };
 
 /**
+ * Android bildirim kanalı oluştur
+ */
+const createNotificationChannel = async () => {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('prayer-times', {
+      name: 'Namaz Vakitleri',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      sound: 'default',
+      enableLights: true,
+      lightColor: '#00FF00',
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+      bypassDnd: true,
+    });
+
+    await Notifications.setNotificationChannelAsync('important-days', {
+      name: 'Önemli Günler',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      sound: 'default',
+      enableLights: true,
+      lightColor: '#FFD700',
+    });
+
+    console.log('✅ Android bildirim kanalları oluşturuldu');
+  }
+};
+
+/**
  * Bildirim izni al
  */
 export const requestNotificationPermission = async () => {
   try {
     if (!Device.isDevice) {
-      Alert.alert('Uyarı', 'Bildirimler sadece gerçek cihazlarda çalışır');
-      return false;
+      console.warn('⚠️ Emülatör tespit edildi - bildirimler sınırlı çalışabilir');
     }
+
+    await createNotificationChannel();
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -39,7 +69,14 @@ export const requestNotificationPermission = async () => {
     }
 
     if (finalStatus !== 'granted') {
-      Alert.alert('Uyarı', 'Bildirim izni verilmedi. Namaz vakti bildirimleri almak için lütfen ayarlardan izin verin.');
+      Alert.alert(
+        'Bildirim İzni Gerekli',
+        'Namaz vakti bildirimleri almak için lütfen ayarlardan bildirim izni verin.',
+        [
+          { text: 'Tamam', style: 'cancel' },
+          { text: 'Ayarlara Git', onPress: () => Linking.openSettings() }
+        ]
+      );
       return false;
     }
 
@@ -62,7 +99,6 @@ export const playAdhan = async () => {
       return;
     }
 
-    // Ses dosyasını yükle ve çal
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/adhan.mp3'),
       { shouldPlay: true }
@@ -70,7 +106,6 @@ export const playAdhan = async () => {
 
     console.log('🔊 Ezan sesi çalınıyor...');
 
-    // Ses bittiğinde temizle
     sound.setOnPlaybackStatusUpdate((status) => {
       if (status.didJustFinish) {
         sound.unloadAsync();
@@ -84,34 +119,74 @@ export const playAdhan = async () => {
 
 /**
  * Tek bir namaz vakti için bildirim planla
+ * Android: Önümüzdeki 30 gün için günlük bildirimler
+ * iOS: Calendar trigger ile tekrarlayan bildirim
  */
 const scheduleNotificationForPrayer = async (prayerName, prayerTime, icon) => {
   try {
     const [hours, minutes] = prayerTime.split(':').map(Number);
+    const notificationIds = [];
 
-    // ✅ DÜZELTİLDİ: type: 'calendar' ekledik
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `${icon} ${prayerName} Vakti Girdi`,
-        body: `${prayerName} namazı vaktine girmiştir. Haydi namaza! 🕌`,
-        sound: true,
-        priority: Notifications.AndroidNotificationPriority.HIGH,
-        vibrate: [0, 250, 250, 250],
-        data: { prayerName, prayerTime },
-      },
-      trigger: {
-        type: 'calendar', // ← EKLENEN SATIR
-        repeats: true,
-        hour: hours,
-        minute: minutes,
-      },
-    });
+    // Bildirim içeriği
+    const content = {
+      title: `${icon} ${prayerName} Vakti Girdi`,
+      body: `${prayerName} namazı vaktine girmiştir. Haydi namaza! 🕌`,
+      sound: true,
+      data: { prayerName, prayerTime },
+    };
 
-    console.log(`✅ ${prayerName} bildirimi planlandı: Her gün ${hours}:${minutes.toString().padStart(2, '0')}`);
-    return notificationId;
+    if (Platform.OS === 'android') {
+      content.priority = Notifications.AndroidNotificationPriority.MAX;
+      content.channelId = 'prayer-times';
+      content.vibrate = [0, 250, 250, 250];
+
+      // ANDROID: Her gün için ayrı bildirim planla (30 gün)
+      const now = new Date();
+      
+      for (let i = 0; i < 30; i++) {
+        const notificationDate = new Date();
+        notificationDate.setDate(now.getDate() + i);
+        notificationDate.setHours(hours);
+        notificationDate.setMinutes(minutes);
+        notificationDate.setSeconds(0);
+        notificationDate.setMilliseconds(0);
+
+        // Sadece gelecekteki zamanlar için planla
+        if (notificationDate > now) {
+          const notificationId = await Notifications.scheduleNotificationAsync({
+            content,
+            trigger: {
+              type: 'date',
+              date: notificationDate,
+              channelId: 'prayer-times',
+            },
+          });
+          
+          notificationIds.push(notificationId);
+        }
+      }
+
+      console.log(`✅ ${prayerName} - ${notificationIds.length} bildirim planlandı (30 gün)`);
+    } else {
+      // iOS: Calendar trigger kullan
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content,
+        trigger: {
+          type: 'calendar',
+          repeats: true,
+          hour: hours,
+          minute: minutes,
+        },
+      });
+
+      notificationIds.push(notificationId);
+      console.log(`✅ ${prayerName} - Tekrarlayan bildirim planlandı (iOS)`);
+    }
+
+    return notificationIds;
   } catch (error) {
     console.error(`❌ ${prayerName} bildirim planlama hatası:`, error);
-    return null;
+    return [];
   }
 };
 
@@ -120,8 +195,11 @@ const scheduleNotificationForPrayer = async (prayerName, prayerTime, icon) => {
  */
 export const schedulePrayerNotifications = async (prayerTimes) => {
   try {
+    console.log('🔔 Bildirim planlama başlıyor...');
+
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
+      console.log('❌ Bildirim izni yok');
       return false;
     }
 
@@ -131,7 +209,9 @@ export const schedulePrayerNotifications = async (prayerTimes) => {
       return false;
     }
 
+    // Önce tüm bildirimleri iptal et
     await Notifications.cancelAllScheduledNotificationsAsync();
+    console.log('🗑️ Eski bildirimler temizlendi');
 
     const prayers = [
       { name: 'İmsak', time: prayerTimes.Fajr, icon: '🌟' },
@@ -142,30 +222,55 @@ export const schedulePrayerNotifications = async (prayerTimes) => {
       { name: 'Yatsı', time: prayerTimes.Isha, icon: '🌙' },
     ];
 
-    const scheduledIds = [];
+    const allScheduledIds = [];
 
     for (const prayer of prayers) {
-      const notificationId = await scheduleNotificationForPrayer(
+      if (!prayer.time) {
+        console.warn(`⚠️ ${prayer.name} vakti bulunamadı`);
+        continue;
+      }
+
+      const notificationIds = await scheduleNotificationForPrayer(
         prayer.name,
         prayer.time,
         prayer.icon
       );
-      if (notificationId) {
-        scheduledIds.push({ prayer: prayer.name, id: notificationId });
+      
+      if (notificationIds.length > 0) {
+        allScheduledIds.push({
+          prayer: prayer.name,
+          ids: notificationIds,
+          count: notificationIds.length
+        });
       }
     }
 
+    // Planlanan bildirimleri kaydet
     await AsyncStorage.setItem(
       STORAGE_KEYS.SCHEDULED_NOTIFICATIONS,
-      JSON.stringify(scheduledIds)
+      JSON.stringify(allScheduledIds)
     );
 
-    console.log('✅ Tüm namaz vakitleri için bildirimler planlandı');
+    // Kontrol için planlanan bildirimleri say
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    console.log('📋 Toplam planlanan bildirim sayısı:', scheduled.length);
+
+    const totalByPrayer = allScheduledIds.reduce((sum, p) => sum + p.count, 0);
+    console.log(`✅ ${allScheduledIds.length} namaz vakti için ${totalByPrayer} bildirim planlandı`);
+    
     return true;
   } catch (error) {
     console.error('❌ Bildirim planlama hatası:', error);
     return false;
   }
+};
+
+/**
+ * Bildirimleri yeniden planla (her 2 haftada bir çağrılmalı)
+ */
+export const renewPrayerNotifications = async (prayerTimes) => {
+  console.log('🔄 Bildirimler yenileniyor...');
+  return await schedulePrayerNotifications(prayerTimes);
 };
 
 /**
@@ -191,86 +296,78 @@ export const scheduleImportantDayNotifications = async (importantDays) => {
       const today = new Date();
       
       if (dayDate > today) {
-        // 1 GÜN ÖNCE HATIRLATMA (11:00)
+        // 1 GÜN ÖNCE HATIRLATMA
         const reminderDate = new Date(dayDate);
         reminderDate.setDate(reminderDate.getDate() - 1);
         reminderDate.setHours(11, 0, 0, 0);
 
         if (reminderDate > today) {
-          // ✅ DÜZELTİLDİ: type: 'date' ekledik
+          const content = {
+            title: `${day.icon} Yarın ${day.name}`,
+            body: `Yarın ${day.name} mübarek günüdür. Hazırlıklarınızı yapabilirsiniz. 🤲`,
+            sound: true,
+            data: { type: 'reminder', dayName: day.name },
+          };
+
+          if (Platform.OS === 'android') {
+            content.priority = Notifications.AndroidNotificationPriority.HIGH;
+            content.channelId = 'important-days';
+          }
+
           const reminderId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `${day.icon} Yarın ${day.name}`,
-              body: `Yarın ${day.name} mübarek günüdür. Hazırlıklarınızı yapabilirsiniz. 🤲`,
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.HIGH,
-              data: { 
-                type: 'reminder',
-                dayName: day.name,
-                dayDate: day.formattedDate,
-              },
-            },
+            content,
             trigger: {
-              type: 'date', // ← EKLENEN SATIR
+              type: 'date',
               date: reminderDate,
+              ...(Platform.OS === 'android' && { channelId: 'important-days' }),
             },
           });
 
           if (reminderId) {
-            scheduledIds.push({ 
-              day: day.name, 
-              id: reminderId, 
-              type: 'reminder' 
-            });
-            console.log(`✅ ${day.name} hatırlatması planlandı: ${reminderDate.toLocaleString('tr-TR')}`);
+            scheduledIds.push({ day: day.name, id: reminderId, type: 'reminder' });
+            console.log(`✅ ${day.name} hatırlatması planlandı`);
           }
         }
 
-        // GÜNÜN KENDİSİ İÇİN BİLDİRİM (08:00)
+        // GÜNÜN KENDİSİ
         const mainDate = new Date(dayDate);
         mainDate.setHours(8, 0, 0, 0);
 
         if (mainDate > today) {
-          // ✅ DÜZELTİLDİ: type: 'date' ekledik
+          const content = {
+            title: `${day.icon} ${day.name} Mübarek!`,
+            body: `Bugün ${day.name}. ${day.description}`,
+            sound: true,
+            data: { type: 'main', dayName: day.name },
+          };
+
+          if (Platform.OS === 'android') {
+            content.priority = Notifications.AndroidNotificationPriority.MAX;
+            content.channelId = 'important-days';
+          }
+
           const mainId = await Notifications.scheduleNotificationAsync({
-            content: {
-              title: `${day.icon} ${day.name} Mübarek!`,
-              body: `Bugün ${day.name}. ${day.description}`,
-              sound: true,
-              priority: Notifications.AndroidNotificationPriority.MAX,
-              data: { 
-                type: 'main',
-                dayName: day.name,
-                dayDate: day.formattedDate,
-              },
-            },
+            content,
             trigger: {
-              type: 'date', // ← EKLENEN SATIR
+              type: 'date',
               date: mainDate,
+              ...(Platform.OS === 'android' && { channelId: 'important-days' }),
             },
           });
 
           if (mainId) {
-            scheduledIds.push({ 
-              day: day.name, 
-              id: mainId, 
-              type: 'main' 
-            });
-            console.log(`✅ ${day.name} ana bildirimi planlandı: ${mainDate.toLocaleString('tr-TR')}`);
+            scheduledIds.push({ day: day.name, id: mainId, type: 'main' });
+            console.log(`✅ ${day.name} ana bildirimi planlandı`);
           }
         }
       }
     }
 
-    await AsyncStorage.setItem(
-      'important_days_notifications',
-      JSON.stringify(scheduledIds)
-    );
-
-    console.log(`✅ Toplam ${scheduledIds.length} önemli gün bildirimi planlandı`);
+    await AsyncStorage.setItem('important_days_notifications', JSON.stringify(scheduledIds));
+    console.log(`✅ ${scheduledIds.length} önemli gün bildirimi planlandı`);
     return true;
   } catch (error) {
-    console.error('❌ Önemli gün bildirimi planlama hatası:', error);
+    console.error('❌ Önemli gün bildirimi hatası:', error);
     return false;
   }
 };
@@ -308,23 +405,28 @@ export const cancelImportantDayNotifications = async () => {
 };
 
 /**
+ * Planlanan bildirimleri listele
+ */
+export const listScheduledNotifications = async () => {
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    console.log('📋 Planlanan bildirimler:', scheduled.length);
+    return scheduled;
+  } catch (error) {
+    console.error('❌ Listeleme hatası:', error);
+    return [];
+  }
+};
+
+/**
  * Bildirim ayarlarını kaydet
  */
 export const saveNotificationSettings = async (settings) => {
   try {
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.NOTIFICATION_ENABLED,
-      settings.enabled.toString()
-    );
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.SOUND_ENABLED,
-      settings.sound.toString()
-    );
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.VIBRATION_ENABLED,
-      settings.vibration.toString()
-    );
-    console.log('✅ Bildirim ayarları kaydedildi:', settings);
+    await AsyncStorage.setItem(STORAGE_KEYS.NOTIFICATION_ENABLED, settings.enabled.toString());
+    await AsyncStorage.setItem(STORAGE_KEYS.SOUND_ENABLED, settings.sound.toString());
+    await AsyncStorage.setItem(STORAGE_KEYS.VIBRATION_ENABLED, settings.vibration.toString());
+    console.log('✅ Ayarlar kaydedildi');
   } catch (error) {
     console.error('❌ Ayar kaydetme hatası:', error);
   }
@@ -356,32 +458,27 @@ export const getNotificationSettings = async () => {
 export const setupNotificationListeners = () => {
   const notificationResponseListener = Notifications.addNotificationResponseReceivedListener(
     async (response) => {
-      const { prayerName } = response.notification.request.content.data;
+      const { prayerName } = response.notification.request.content.data || {};
       console.log('🔔 Bildirime tıklandı:', prayerName);
-      
       await playAdhan();
     }
   );
 
   const notificationListener = Notifications.addNotificationReceivedListener(
     async (notification) => {
-      const { prayerName } = notification.request.content.data;
+      const { prayerName } = notification.request.content.data || {};
       console.log('📬 Bildirim alındı:', prayerName);
-      
       await playAdhan();
     }
   );
 
-  return {
-    notificationResponseListener,
-    notificationListener,
-  };
+  return { notificationResponseListener, notificationListener };
 };
 
 /**
  * Listener'ları kaldır
  */
 export const removeNotificationListeners = (listeners) => {
-  listeners.notificationResponseListener?.remove();
-  listeners.notificationListener?.remove();
+  listeners?.notificationResponseListener?.remove();
+  listeners?.notificationListener?.remove();
 };
