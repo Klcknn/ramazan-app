@@ -123,11 +123,18 @@ const HadisScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
+  // ✅ GÜNCEL - Favorileri yükle - ANA FAVORİLER SİSTEMİ İLE UYUMLU
   const loadFavorites = async () => {
     try {
-      const saved = await AsyncStorage.getItem('favoriteHadisler');
-      if (saved) {
-        setFavorites(JSON.parse(saved));
+      // Ana favoriler sisteminden yükle
+      const mainFavorites = await AsyncStorage.getItem('favorites');
+      if (mainFavorites) {
+        const favList = JSON.parse(mainFavorites);
+        // Sadece hadis tipindeki favorilerin ID'lerini al
+        const hadisFavoriteIds = favList
+          .filter(item => item.type === 'hadis')
+          .map(item => item.content.firestoreId || item.content.id);
+        setFavorites(hadisFavoriteIds);
       }
     } catch (error) {
       console.error('Favoriler yüklenemedi:', error);
@@ -136,19 +143,50 @@ const HadisScreen = ({ navigation }) => {
 
   const saveFavorites = async (newFavorites) => {
     try {
-      await AsyncStorage.setItem('favoriteHadisler', JSON.stringify(newFavorites));
       setFavorites(newFavorites);
     } catch (error) {
       console.error('Favoriler kaydedilemedi:', error);
     }
   };
 
-  const toggleFavorite = (hadisId) => {
-    const isFavorite = favorites.includes(hadisId);
-    const newFavorites = isFavorite
-      ? favorites.filter(id => id !== hadisId)
-      : [...favorites, hadisId];
-    saveFavorites(newFavorites);
+  // ✅ GÜNCEL - toggleFavorite - ANA FAVORİLER SİSTEMİ İLE UYUMLU
+  const toggleFavorite = async (hadisId) => {
+    try {
+      // Ana favoriler sisteminden oku
+      const mainFavorites = await AsyncStorage.getItem('favorites');
+      let favList = mainFavorites ? JSON.parse(mainFavorites) : [];
+      
+      // Bu hadisi bul
+      const hadis = hadislerData.find(h => h.id === hadisId);
+      if (!hadis) return;
+
+      // Favorilerde var mı kontrol et
+      const existingIndex = favList.findIndex(
+        item => item.type === 'hadis' && (item.content.firestoreId === hadisId || item.content.id === hadisId)
+      );
+
+      if (existingIndex >= 0) {
+        // Favorilerden çıkar
+        favList.splice(existingIndex, 1);
+        const newFavoriteIds = favorites.filter(id => id !== hadisId);
+        setFavorites(newFavoriteIds);
+      } else {
+        // Favorilere ekle
+        favList.push({
+          type: 'hadis',
+          title: hadis.title,
+          content: hadis,
+          addedAt: new Date().toISOString()
+        });
+        setFavorites([...favorites, hadisId]);
+      }
+
+      // Ana favoriler sistemine kaydet
+      await AsyncStorage.setItem('favorites', JSON.stringify(favList));
+      console.log('✅ Hadis favorilere eklendi/çıkarıldı');
+    } catch (error) {
+      console.error('❌ Favori toggle hatası:', error);
+    }
   };
 
   const filteredHadisler = hadislerData.filter(hadis => {
