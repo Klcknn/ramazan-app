@@ -140,12 +140,18 @@ const DuaScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  // Favorileri yükle
+  // ✅ GÜNCEL - Favorileri yükle - ANA FAVORİLER SİSTEMİ İLE UYUMLU
   const loadFavorites = async () => {
     try {
-      const saved = await AsyncStorage.getItem('favoriteDuas');
-      if (saved) {
-        setFavorites(JSON.parse(saved));
+      // Ana favoriler sisteminden yükle
+      const mainFavorites = await AsyncStorage.getItem('favorites');
+      if (mainFavorites) {
+        const favList = JSON.parse(mainFavorites);
+        // Sadece dua tipindeki favorilerin ID'lerini al
+        const duaFavoriteIds = favList
+          .filter(item => item.type === 'dua')
+          .map(item => item.content.firestoreId || item.content.id);
+        setFavorites(duaFavoriteIds);
       }
     } catch (error) {
       console.error('Favoriler yüklenemedi:', error);
@@ -154,19 +160,50 @@ const DuaScreen = ({ navigation }) => {
 
   const saveFavorites = async (newFavorites) => {
     try {
-      await AsyncStorage.setItem('favoriteDuas', JSON.stringify(newFavorites));
       setFavorites(newFavorites);
     } catch (error) {
-      console.error('Favoriler kaydedilemedi :', error);
+      console.error('Favoriler kaydedilemedi:', error);
     }
   };
 
-  const toggleFavorite = (duaId) => {
-    const isFavorite = favorites.includes(duaId);
-    const newFavorites = isFavorite
-      ? favorites.filter(id => id !== duaId)
-      : [...favorites, duaId];
-    saveFavorites(newFavorites);
+  // ✅ GÜNCEL - toggleFavorite - ANA FAVORİLER SİSTEMİ İLE UYUMLU
+  const toggleFavorite = async (duaId) => {
+    try {
+      // Ana favoriler sisteminden oku
+      const mainFavorites = await AsyncStorage.getItem('favorites');
+      let favList = mainFavorites ? JSON.parse(mainFavorites) : [];
+      
+      // Bu duayı bul
+      const dua = duasData.find(d => d.id === duaId);
+      if (!dua) return;
+
+      // Favorilerde var mı kontrol et
+      const existingIndex = favList.findIndex(
+        item => item.type === 'dua' && (item.content.firestoreId === duaId || item.content.id === duaId)
+      );
+
+      if (existingIndex >= 0) {
+        // Favorilerden çıkar
+        favList.splice(existingIndex, 1);
+        const newFavoriteIds = favorites.filter(id => id !== duaId);
+        setFavorites(newFavoriteIds);
+      } else {
+        // Favorilere ekle
+        favList.push({
+          type: 'dua',
+          title: dua.title,
+          content: dua,
+          addedAt: new Date().toISOString()
+        });
+        setFavorites([...favorites, duaId]);
+      }
+
+      // Ana favoriler sistemine kaydet
+      await AsyncStorage.setItem('favorites', JSON.stringify(favList));
+      console.log('✅ Dua favorilere eklendi/çıkarıldı');
+    } catch (error) {
+      console.error('❌ Favori toggle hatası:', error);
+    }
   };
 
   // Arama filtresi
@@ -277,7 +314,7 @@ const DuaScreen = ({ navigation }) => {
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.text }]}>
-          Firebase den dualar yükleniyor...
+          Dualar yükleniyor...
         </Text>
         <Text style={[styles.loadingSubText, { color: theme.textSecondary }]}>
           Lütfen bekleyin

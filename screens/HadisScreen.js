@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
+import { collection, getDocs } from 'firebase/firestore';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,7 +16,6 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
-import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 const HadisScreen = ({ navigation }) => {
@@ -255,7 +255,7 @@ const HadisScreen = ({ navigation }) => {
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
         <Text style={[styles.loadingText, { color: theme.text }]}>
-          Firebase den hadisler yükleniyor...
+          Hadisler yükleniyor...
         </Text>
         <Text style={[styles.loadingSubText, { color: theme.textSecondary }]}>
           Lütfen bekleyin
