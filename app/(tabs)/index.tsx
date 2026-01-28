@@ -16,6 +16,7 @@ import SettingsScreen from '../../screens/SettingsScreen';
 import SplashScreen from '../../screens/SplashScreen';
 import TesbihScreen from '../../screens/TesbihScreen';
 
+
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
 
@@ -184,6 +185,14 @@ function SettingsStackScreen() {
         options={{ 
           headerShown: false,
           title: 'Ayarlar',
+        }}
+      />
+      <SettingsStack.Screen 
+        name="FavoritesScreen" 
+        component={FavoritesScreen}
+        options={{ 
+          headerShown: false,
+          title: 'Favorilerim',
         }}
       />
     </SettingsStack.Navigator>

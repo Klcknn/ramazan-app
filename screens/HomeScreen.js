@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Sharing from 'expo-sharing';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import ViewShot from 'react-native-view-shot';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
 import { initializeNotifications } from '../services/Notificationrenewalhelper ';
@@ -36,8 +38,8 @@ export default function HomeScreen() {
   const [isHadisFavorite, setIsHadisFavorite] = useState(false);
 
   // ViewShot ref'leri
-  const duaViewShotRef = useState(null);
-  const hadisViewShotRef = useState(null);
+  const duaViewShotRef = useRef(null);
+  const hadisViewShotRef = useRef(null);
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -142,30 +144,29 @@ export default function HomeScreen() {
     }
   };
 
-  // Paylaşma fonksiyonu
-  const handleShare = async (type, content) => {
+  // Paylaşma fonksiyonu - JPEG formatında
+  const handleShare = async (type, content, viewShotRef) => {
     try {
-      let message = '';
-      
-      if (type === 'dua') {
-        message = `🤲 ${content.title}\n\n`;
-        message += `📖 ${content.arabic}\n\n`;
-        message += `🔤 ${content.pronunciation}\n\n`;
-        message += `🇹🇷 ${content.turkish}\n\n`;
-        message += `Kaynak: ${content.source || 'Bilinmiyor'}`;
-      } else {
-        message = `📖 ${content.title}\n\n`;
-        message += `📜 ${content.arabic}\n\n`;
-        message += `🇹🇷 ${content.turkish}\n\n`;
-        message += `Kaynak: ${content.source || 'Bilinmiyor'}`;
+      if (!viewShotRef.current) {
+        Alert.alert('Hata', 'Görsel hazırlanamadı');
+        return;
       }
 
-      await Share.share({
-        message: message,
-        title: type === 'dua' ? 'Günün Duası' : 'Günün Hadisi'
-      });
+      // ViewShot ile JPEG olarak kaydet
+      const uri = await viewShotRef.current.capture();
+      
+      // Paylaş
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: type === 'dua' ? '🤲 Günün Duası' : '📖 Günün Hadisi',
+        });
+      } else {
+        Alert.alert('Hata', 'Paylaşım özelliği bu cihazda kullanılamıyor');
+      }
     } catch (error) {
       console.error('Paylaşım hatası:', error);
+      Alert.alert('Hata', 'Paylaşım sırasında bir hata oluştu');
     }
   };
 
@@ -284,15 +285,15 @@ export default function HomeScreen() {
   // ✅ 5x2 Grid için 10 özellik
   const features = [
     { name: 'Tesbih', icon: '📿', screen: 'Tesbih' },
-    { name: 'Yakın Camiler', icon: '🕌', screen: 'NearestMosquesScreen' },
+    { name: 'Camiler', icon: '🕌', screen: 'NearestMosquesScreen' },
     { name: 'Kıble', icon: '🧭', screen: 'QiblaScreen' },
-    { name: 'Ramazan Ayı', icon: '🌙', screen: 'RamadanCalendar' },
-    { name: 'Dualar', icon: '🤲', screen: 'DuaScreen' },
-    { name: 'Hadisler', icon: '📖', screen: 'HadisScreen' },
+    { name: 'Ramazan', icon: '🌙', screen: 'RamadanCalendar' },
+    { name: 'Dua', icon: '🤲', screen: 'DuaScreen' },
+    { name: 'Hadis', icon: '📖', screen: 'HadisScreen' },
     { name: 'Dini Günler', icon: '📅', screen: 'ImportantDaysScreen' },
     { name: 'Namazlar', icon: '🕋', screen: null },
     { name: 'Kuran', icon: '📜', screen: null },
-    { name: 'Cuma Hutbeleri', icon: '💚', screen: null },
+    { name: 'Zikirler', icon: '💚', screen: null },
   ];
 
   if (loading && !prayerTimes) {
@@ -490,6 +491,62 @@ export default function HomeScreen() {
         transparent={true}
         onRequestClose={() => setShowDuaModal(false)}
       >
+        {/* ✅ Paylaşılacak görsel - Ekran dışında gizli */}
+        <View style={{ position: 'absolute', left: -9999, top: 0 }}>
+          <ViewShot ref={duaViewShotRef} options={{ format: 'jpg', quality: 0.95 }}>
+            <View style={[styles.shareImageContainer, { backgroundColor: '#E8F5E9' }]}>
+              {/* Header */}
+              <View style={styles.shareImageHeader}>
+                <Text style={styles.shareImageIcon}>🤲</Text>
+                <Text style={styles.shareImageTitle}>GÜNÜN DUASI</Text>
+              </View>
+
+              {/* Title */}
+              <View style={styles.shareImageTitleBox}>
+                <Text style={styles.shareImageTitleText}>{dailyDua?.title}</Text>
+              </View>
+
+              {/* Arapça */}
+              <View style={styles.shareImageSection}>
+                <View style={styles.shareImageSectionHeader}>
+                  <View style={styles.shareImageLine} />
+                  <Text style={styles.shareImageSectionTitle}>Arapça</Text>
+                  <View style={styles.shareImageLine} />
+                </View>
+                <Text style={styles.shareImageArabic}>{dailyDua?.arabic}</Text>
+              </View>
+
+              {/* Okunuş */}
+              <View style={styles.shareImageSection}>
+                <View style={styles.shareImageSectionHeader}>
+                  <View style={styles.shareImageLine} />
+                  <Text style={styles.shareImageSectionTitle}>Okunuşu</Text>
+                  <View style={styles.shareImageLine} />
+                </View>
+                <Text style={styles.shareImagePronunciation}>{dailyDua?.pronunciation}</Text>
+              </View>
+
+              {/* Türkçe */}
+              <View style={styles.shareImageSection}>
+                <View style={styles.shareImageSectionHeader}>
+                  <View style={styles.shareImageLine} />
+                  <Text style={styles.shareImageSectionTitle}>Türkçe Meali</Text>
+                  <View style={styles.shareImageLine} />
+                </View>
+                <Text style={styles.shareImageTurkish}>{dailyDua?.turkish}</Text>
+              </View>
+
+              {/* Footer */}
+              <View style={styles.shareImageFooter}>
+                <Text style={styles.shareImageSource}>📚 {dailyDua?.source}</Text>
+                <View style={styles.shareImageBranding}>
+                  <Text style={styles.shareImageBrandText}>🕌 İslami Hayat</Text>
+                </View>
+              </View>
+            </View>
+          </ViewShot>
+        </View>
+
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -536,7 +593,7 @@ export default function HomeScreen() {
 
               <TouchableOpacity 
                 style={[styles.actionButton, styles.shareButton]}
-                onPress={() => handleShare('dua', dailyDua)}
+                onPress={() => handleShare('dua', dailyDua, duaViewShotRef)}
               >
                 <Text style={styles.actionButtonIcon}>📤</Text>
                 <Text style={styles.actionButtonText}>Paylaş</Text>
@@ -563,6 +620,52 @@ export default function HomeScreen() {
         transparent={true}
         onRequestClose={() => setShowHadisModal(false)}
       >
+        {/* ✅ Paylaşılacak görsel - Ekran dışında gizli */}
+        <View style={{ position: 'absolute', left: -9999, top: 0 }}>
+          <ViewShot ref={hadisViewShotRef} options={{ format: 'jpg', quality: 0.95 }}>
+            <View style={[styles.shareImageContainer, { backgroundColor: '#FFF3E0' }]}>
+              {/* Header */}
+              <View style={styles.shareImageHeader}>
+                <Text style={styles.shareImageIcon}>📖</Text>
+                <Text style={styles.shareImageTitle}>GÜNÜN HADİSİ</Text>
+              </View>
+
+              {/* Title */}
+              <View style={styles.shareImageTitleBox}>
+                <Text style={styles.shareImageTitleText}>{dailyHadis?.title}</Text>
+              </View>
+
+              {/* Arapça */}
+              <View style={styles.shareImageSection}>
+                <View style={styles.shareImageSectionHeader}>
+                  <View style={styles.shareImageLine} />
+                  <Text style={styles.shareImageSectionTitle}>Arapça</Text>
+                  <View style={styles.shareImageLine} />
+                </View>
+                <Text style={styles.shareImageArabic}>{dailyHadis?.arabic}</Text>
+              </View>
+
+              {/* Türkçe */}
+              <View style={styles.shareImageSection}>
+                <View style={styles.shareImageSectionHeader}>
+                  <View style={styles.shareImageLine} />
+                  <Text style={styles.shareImageSectionTitle}>Türkçe Meali</Text>
+                  <View style={styles.shareImageLine} />
+                </View>
+                <Text style={styles.shareImageTurkish}>{dailyHadis?.turkish}</Text>
+              </View>
+
+              {/* Footer */}
+              <View style={styles.shareImageFooter}>
+                <Text style={styles.shareImageSource}>📚 {dailyHadis?.source}</Text>
+                <View style={styles.shareImageBranding}>
+                  <Text style={styles.shareImageBrandText}>🕌 İslami Hayat</Text>
+                </View>
+              </View>
+            </View>
+          </ViewShot>
+        </View>
+
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -609,7 +712,7 @@ export default function HomeScreen() {
 
               <TouchableOpacity 
                 style={[styles.actionButton, styles.shareButton]}
-                onPress={() => handleShare('hadis', dailyHadis)}
+                onPress={() => handleShare('hadis', dailyHadis, hadisViewShotRef)}
               >
                 <Text style={styles.actionButtonIcon}>📤</Text>
                 <Text style={styles.actionButtonText}>Paylaş</Text>
@@ -1059,5 +1162,111 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  // ✅ Paylaşım Görseli Stilleri
+  shareImageContainer: {
+    width: 1080,
+    padding: 60,
+  },
+  shareImageHeader: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  shareImageIcon: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  shareImageTitle: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: '#00897B',
+    letterSpacing: 4,
+  },
+  shareImageTitleBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 30,
+    borderRadius: 20,
+    marginBottom: 40,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  shareImageTitleText: {
+    fontSize: 38,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+  },
+  shareImageSection: {
+    marginBottom: 40,
+  },
+  shareImageSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  shareImageLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#00897B',
+    opacity: 0.4,
+  },
+  shareImageSectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#00897B',
+    paddingHorizontal: 20,
+    letterSpacing: 2,
+  },
+  shareImageArabic: {
+    fontSize: 40,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'right',
+    lineHeight: 70,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 25,
+    borderRadius: 15,
+  },
+  shareImagePronunciation: {
+    fontSize: 28,
+    color: '#555',
+    fontStyle: 'italic',
+    lineHeight: 46,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 25,
+    borderRadius: 15,
+  },
+  shareImageTurkish: {
+    fontSize: 30,
+    color: '#333',
+    lineHeight: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    padding: 25,
+    borderRadius: 15,
+  },
+  shareImageFooter: {
+    marginTop: 30,
+  },
+  shareImageSource: {
+    fontSize: 26,
+    color: '#00897B',
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 30,
+  },
+  shareImageBranding: {
+    paddingTop: 30,
+    borderTopWidth: 4,
+    borderTopColor: '#00897B',
+    alignItems: 'center',
+  },
+  shareImageBrandText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#00897B',
+    letterSpacing: 3,
   },
 });
