@@ -10,6 +10,7 @@ import HadisScreen from '../../screens/HadisScreen';
 import HomeScreen from '../../screens/HomeScreen';
 import ImportantDaysScreen from '../../screens/ImportantDaysScreen';
 import NearestMosquesScreen from '../../screens/NearestMosquesScreen';
+import NotificationsScreen from '../../screens/NotificationsScreen';
 import QiblaScreen from '../../screens/QiblaScreen';
 import RamadanCalendarScreen from '../../screens/RamadanCalendarScreen';
 import SettingsScreen from '../../screens/SettingsScreen';
@@ -129,6 +130,14 @@ function HomeStackScreen() {
         options={{ 
           headerShown: false,
           title: 'Favorilerim',
+        }}
+      />
+      <HomeStack.Screen 
+        name="NotificationsScreen" 
+        component={NotificationsScreen}
+        options={{ 
+          headerShown: false,
+          title: 'Bildirimler',
         }}
       />
     </HomeStack.Navigator>

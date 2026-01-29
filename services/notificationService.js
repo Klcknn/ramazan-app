@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import { Alert, Platform, Linking } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
+// ✅ Bildirim helper'ı import et
+import { addNotification } from './Notificationrenewalhelper';
 
 // Bildirim davranışını ayarla
 Notifications.setNotificationHandler({
@@ -461,6 +463,20 @@ export const setupNotificationListeners = () => {
       const { prayerName } = response.notification.request.content.data || {};
       console.log('🔔 Bildirime tıklandı:', prayerName);
       await playAdhan();
+      
+      // ✅ Bildirimi in-app listeye ekle
+      const { title, body } = response.notification.request.content;
+      const data = response.notification.request.content.data;
+      
+      try {
+        await addNotification({
+          title: title || 'Bildirim',
+          body: body || '',
+          type: data?.type || 'prayer',
+        });
+      } catch (error) {
+        console.error('Bildirim listeye eklenirken hata:', error);
+      }
     }
   );
 
@@ -469,6 +485,20 @@ export const setupNotificationListeners = () => {
       const { prayerName } = notification.request.content.data || {};
       console.log('📬 Bildirim alındı:', prayerName);
       await playAdhan();
+      
+      // ✅ Bildirimi in-app listeye ekle
+      const { title, body } = notification.request.content;
+      const data = notification.request.content.data;
+      
+      try {
+        await addNotification({
+          title: title || 'Bildirim',
+          body: body || '',
+          type: data?.type || 'prayer',
+        });
+      } catch (error) {
+        console.error('Bildirim listeye eklenirken hata:', error);
+      }
     }
   );
 

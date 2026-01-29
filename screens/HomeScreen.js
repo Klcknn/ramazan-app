@@ -7,7 +7,6 @@ import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView
 import ViewShot from 'react-native-view-shot';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
-import { initializeNotifications } from '../services/Notificationrenewalhelper ';
 import { removeNotificationListeners, setupNotificationListeners } from '../services/notificationService';
 import { getNextPrayer, getPrayerTimes } from '../services/prayerTimesAPI';
 
@@ -40,6 +39,9 @@ export default function HomeScreen() {
   // ViewShot ref'leri
   const duaViewShotRef = useRef(null);
   const hadisViewShotRef = useRef(null);
+
+  // ✅ Bildirim sistemi
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -70,6 +72,32 @@ export default function HomeScreen() {
     if (dailyDua) checkIfFavorite('dua', dailyDua.title);
     if (dailyHadis) checkIfFavorite('hadis', dailyHadis.title);
   }, [dailyDua, dailyHadis]);
+
+  // ✅ Bildirimleri yükle
+  useEffect(() => {
+    loadNotificationCount();
+    
+    // Sayfa her açıldığında bildirimleri yenile
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadNotificationCount();
+    });
+    
+    return unsubscribe;
+  }, [navigation]);
+
+  // ✅ Okunmamış bildirim sayısını yükle
+  const loadNotificationCount = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('app_notifications');
+      if (stored) {
+        const notifications = JSON.parse(stored);
+        const unread = notifications.filter(n => !n.read).length;
+        setUnreadNotificationCount(unread);
+      }
+    } catch (error) {
+      console.error('Bildirim sayısı yüklenirken hata:', error);
+    }
+  };
 
   const loadDailyContent = async () => {
     try {
@@ -195,8 +223,6 @@ export default function HomeScreen() {
         const next = getNextPrayer(times);
         setNextPrayer(next);
         
-        await initializeNotifications(times);
-        
         console.log('✅ Namaz vakitleri alındı:', times);
       } else {
         Alert.alert(
@@ -317,8 +343,18 @@ export default function HomeScreen() {
             <Text style={styles.date}>{formatDate(currentTime)}</Text>
             <Text style={styles.location}>{fullLocation}</Text>
           </View>
-          <TouchableOpacity style={styles.notificationButton}>
+          <TouchableOpacity 
+            style={styles.notificationButton}
+            onPress={() => navigation.navigate('NotificationsScreen')}
+          >
             <Text style={styles.notificationIcon}>🔔</Text>
+            {unreadNotificationCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -770,9 +806,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   notificationIcon: {
     fontSize: 20,
+    color: '#FFFFFF',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#FF3B30',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#00897B',
+  },
+  notificationBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
   },
   timeContainer: {
     alignItems: 'center',
