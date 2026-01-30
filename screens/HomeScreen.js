@@ -74,16 +74,26 @@ export default function HomeScreen() {
     if (dailyHadis) checkIfFavorite('hadis', dailyHadis.title);
   }, [dailyDua, dailyHadis]);
 
-  // ✅ Bildirimleri yükle
+  // ✅ Bildirimleri yükle - Her focus'ta ve her 3 saniyede bir
   useEffect(() => {
+    // İlk yüklemede badge'i kontrol et
     loadNotificationCount();
     
-    // Sayfa her açıldığında bildirimleri yenile
+    // Sayfa her açıldığında badge'i güncelle
     const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 [HomeScreen] Sayfa focus oldu, badge güncelleniyor');
       loadNotificationCount();
     });
     
-    return unsubscribe;
+    // Her 3 saniyede bir badge'i kontrol et (arka plan bildirimleri için)
+    const interval = setInterval(() => {
+      loadNotificationCount();
+    }, 3000);
+    
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, [navigation]);
 
   // ✅ Okunmamış bildirim sayısını yükle
@@ -94,9 +104,14 @@ export default function HomeScreen() {
         const notifications = JSON.parse(stored);
         const unread = notifications.filter(n => !n.read).length;
         setUnreadNotificationCount(unread);
+        console.log(`🔔 [HomeScreen] Badge: ${unread} okunmamış bildirim`);
+      } else {
+        setUnreadNotificationCount(0);
+        console.log('🔔 [HomeScreen] Badge: Bildirim yok');
       }
     } catch (error) {
-      console.error('Bildirim sayısı yüklenirken hata:', error);
+      console.error('❌ [HomeScreen] Badge hatası:', error);
+      setUnreadNotificationCount(0);
     }
   };
 
@@ -300,6 +315,18 @@ export default function HomeScreen() {
 
   const { current: currentPrayerName } = getPrayerStatus();
 
+  /*   
+  const prayerTimesArray = prayerTimes ? [
+    { name: 'İmsak', time: prayerTimes.Fajr?.substring(0, 5), icon: 'weather-night' },
+    { name: 'Güneş', time: prayerTimes.Sunrise?.substring(0, 5), icon: 'weather-sunset-up' },
+    { name: 'Öğle', time: prayerTimes.Dhuhr?.substring(0, 5), icon: 'white-balance-sunny' },
+    { name: 'İkindi', time: prayerTimes.Asr?.substring(0, 5), icon: 'weather-partly-cloudy' },
+    { name: 'Akşam', time: prayerTimes.Maghrib?.substring(0, 5), icon: 'weather-sunset-down' },
+    { name: 'Yatsı', time: prayerTimes.Isha?.substring(0, 5), icon: 'weather-night' },    
+  ] : []; 
+  */
+
+   
   const prayerTimesArray = prayerTimes ? [
     { name: 'İmsak', time: prayerTimes.Fajr?.substring(0, 5), icon: '🌟' },
     { name: 'Güneş', time: prayerTimes.Sunrise?.substring(0, 5), icon: '🌄' },
@@ -307,10 +334,26 @@ export default function HomeScreen() {
     { name: 'İkindi', time: prayerTimes.Asr?.substring(0, 5), icon: '🌤' },
     { name: 'Akşam', time: prayerTimes.Maghrib?.substring(0, 5), icon: '🌅' },
     { name: 'Yatsı', time: prayerTimes.Isha?.substring(0, 5), icon: '🌙' },
-  ] : [];
+  ] : []; 
+   
+ 
 
   // ✅ 5x2 Grid için 10 özellik
   const features = [
+    { name: 'Tesbih', icon: 'counter', screen: 'Tesbih' },
+    { name: 'Camiler', icon: 'mosque', screen: 'NearestMosquesScreen' },
+    { name: 'Kıble', icon: 'compass-outline', screen: 'QiblaScreen' },
+    { name: 'Ramazan', icon: 'moon-waning-crescent', screen: 'RamadanCalendar' },
+    { name: 'Dua', icon: 'hands-pray', screen: 'DuaScreen' },
+    { name: 'Hadis', icon: 'book-open-variant', screen: 'HadisScreen' },
+    { name: 'Dini Günler', icon: 'calendar-star', screen: 'ImportantDaysScreen' },
+    { name: 'Namazlar', icon: 'clock-outline', screen: null },
+    { name: 'Kuran', icon: 'book-open-page-variant', screen: null },
+    { name: 'Hutbe', icon: 'microphone-outline', screen: null },
+  ];  
+  
+  // ✅ 5x2 Grid için 10 özellik
+/*   const features = [
     { name: 'Tesbih', icon: '📿', screen: 'Tesbih' },
     { name: 'Camiler', icon: '🕌', screen: 'NearestMosquesScreen' },
     { name: 'Kıble', icon: '🧭', screen: 'QiblaScreen' },
@@ -321,7 +364,7 @@ export default function HomeScreen() {
     { name: 'Namazlar', icon: '🕋', screen: null },
     { name: 'Kuran', icon: '📜', screen: null },
     { name: 'Zikirler', icon: '💚', screen: null },
-  ];
+  ]; */
 
   if (loading && !prayerTimes) {
     return (
@@ -336,7 +379,8 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        colors={['#00897B', '#26A69A', '#4DB6AC']} 
+        start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={styles.topSection}
       >
         <View style={styles.header}>
@@ -386,9 +430,8 @@ export default function HomeScreen() {
                 styles.prayerCard,
                 isCurrent && styles.currentPrayerCard
               ]}>
-                <Text style={[styles.prayerIcon, isCurrent && styles.currentPrayerIcon]}>
-                  {prayer.icon}
-                </Text>
+{/* <MaterialCommunityIcons name={prayer.icon} style={[styles.prayerIcon, isCurrent && styles.currentPrayerIcon]} size={25} color="#FFFFFF" />*/}               
+                <Text style={[styles.prayerIcon, isCurrent && styles.currentPrayerIcon]}>{prayer.icon}</Text>            
                 <Text style={[
                   styles.prayerName,
                   isCurrent && styles.currentPrayerName
@@ -434,7 +477,6 @@ export default function HomeScreen() {
           {features.map((feature, index) => (
             <TouchableOpacity 
               key={index} 
-              style={styles.featureCard}
               activeOpacity={0.7}
               onPress={() => {
                 if (feature.screen) {
@@ -444,10 +486,16 @@ export default function HomeScreen() {
                 }
               }}
             >
-              <View style={styles.featureIconContainer}>
-                <Text style={styles.featureIcon}>{feature.icon}</Text>
-              </View>
-              <Text style={styles.featureName}>{feature.name}</Text>
+               <LinearGradient colors={['#00897B', '#26A69A', '#4DB6AC']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.featureCard}>
+                <MaterialCommunityIcons name={feature.icon} size={25} color="#FFFFFF" style={{ marginBottom: 8 }} />
+                <Text style={styles.featureName}>{feature.name}</Text>
+              </LinearGradient>
+              {/* 
+              <LinearGradient colors={['#00897B', '#26A69A', '#4DB6AC']} style={styles.featureIconContainer}>
+                <MaterialCommunityIcons style={styles.featureIcon} name={feature.icon} size={28} color="#FFFFFF" />
+              </LinearGradient>
+              <Text style={styles.featureName}>{feature.name}</Text> 
+              */}
             </TouchableOpacity>
           ))}
         </View>
@@ -858,69 +906,69 @@ const styles = StyleSheet.create({
   prayerCard: {
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    borderRadius: 14,
-    flex: 1,
-    marginHorizontal: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 8,
+    borderRadius: 12,
+    width: (width - 52) / 6, // Sabit genişlik - 6 kart için eşit dağılım
+    marginHorizontal: 1,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.15)',
     position: 'relative',
-    marginBottom: 2,
+    minHeight: 75, // Minimum yükseklik
   },
   currentPrayerCard: {
     backgroundColor: '#4CAF50',
     borderColor: '#FFFFFF',
     borderWidth: 2,
-    transform: [{ scale: 1.12 }],
     shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 8,
-    marginBottom: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 6,
+    // transform kaldırıldı - kayma problemi çözüldü
   },
   prayerIcon: {
     fontSize: 22,
-    marginBottom: 4,
-    opacity: 0.8,
+    marginBottom: 3,
+    opacity: 0.85,
   },
   currentPrayerIcon: {
-    fontSize: 26,
+    fontSize: 24,
     opacity: 1,
   },
   prayerName: {
-    fontSize: 13,
+    fontSize: 15,
     color: '#E0F2F1',
-    marginBottom: 3,
-    fontWeight: '700',
+    marginBottom: 2,
+    fontWeight: '600',
     opacity: 1,
+    textAlign: 'center',
   },
   currentPrayerName: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#FFFFFF',
     opacity: 1,
   },
   prayerTime: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#FFFFFF',
     opacity: 1,
   },
   currentPrayerTime: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
     opacity: 1,
   },
   activePulse: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    top: 3,
+    right: 3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#FFFFFF',
   },
   bottomSection: {
@@ -959,7 +1007,8 @@ const styles = StyleSheet.create({
   featureCard: {
     width: (width - 44) / 5, // 5 sütun
     height: 85,
-    backgroundColor: '#FFFFFF',
+    //backgroundColor: '#FFFFFF',
+    backgroundColor: '#00897B',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -977,17 +1026,19 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E8F5E9',
+    //backgroundColor: '#E8F5E9',
+    backgroundColor: '#00897B',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 6,
   },
   featureIcon: {
-    fontSize: 20,
+    fontSize: 25,
   },
   featureName: {
-    fontSize: 9,
-    color: '#333',
+    fontSize: 12,
+    color: '#FFFFFF',
+    //color: '#333',
     fontWeight: '700',
     textAlign: 'center',
     lineHeight: 11,

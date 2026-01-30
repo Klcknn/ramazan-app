@@ -21,18 +21,25 @@ export default function NotificationsScreen({ navigation }) {
   // Bildirimleri yükle
   const loadNotifications = async () => {
     try {
+      console.log('📬 [NotificationsScreen] Bildirimler yükleniyor...');
       const stored = await AsyncStorage.getItem('app_notifications');
+      
       if (stored) {
         const notifs = JSON.parse(stored);
+        console.log(`📬 [NotificationsScreen] ${notifs.length} bildirim bulundu`);
+        
         // En yeni önce
         notifs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setNotifications(notifs);
         
         // Tüm bildirimleri okundu olarak işaretle
         await markAllAsRead();
+      } else {
+        console.log('📬 [NotificationsScreen] Hiç bildirim yok');
+        setNotifications([]);
       }
     } catch (error) {
-      console.error('Bildirimler yüklenirken hata:', error);
+      console.error('❌ [NotificationsScreen] Yükleme hatası:', error);
     } finally {
       setLoading(false);
     }
@@ -41,14 +48,21 @@ export default function NotificationsScreen({ navigation }) {
   // Tüm bildirimleri okundu olarak işaretle
   const markAllAsRead = async () => {
     try {
+      console.log('✏️ [NotificationsScreen] Tüm bildirimler okundu yapılıyor...');
       const stored = await AsyncStorage.getItem('app_notifications');
+      
       if (stored) {
         const notifs = JSON.parse(stored);
+        const unreadCount = notifs.filter(n => !n.read).length;
+        console.log(`✏️ [NotificationsScreen] ${unreadCount} okunmamış bildirim işaretleniyor`);
+        
         const updatedNotifs = notifs.map(n => ({ ...n, read: true }));
         await AsyncStorage.setItem('app_notifications', JSON.stringify(updatedNotifs));
+        
+        console.log('✅ [NotificationsScreen] Tüm bildirimler okundu olarak kaydedildi');
       }
     } catch (error) {
-      console.error('Bildirimler güncellenirken hata:', error);
+      console.error('❌ [NotificationsScreen] markAllAsRead hatası:', error);
     }
   };
 
@@ -219,7 +233,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    fontSize: 24,
+    fontSize: 40,
     color: '#FFFFFF',
     fontWeight: '600',
   },

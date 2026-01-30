@@ -16,6 +16,8 @@ import RamadanCalendarScreen from '../../screens/RamadanCalendarScreen';
 import SettingsScreen from '../../screens/SettingsScreen';
 import SplashScreen from '../../screens/SplashScreen';
 import TesbihScreen from '../../screens/TesbihScreen';
+// ✅ Bildirim listener'larını import et
+import { removeNotificationListeners, setupNotificationListeners } from '../../services/notificationService';
 
 
 const Stack = createStackNavigator();
@@ -280,6 +282,7 @@ function MainTabs() {
 // Main App Component
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [notificationListeners, setNotificationListeners] = useState(null);
 
   useEffect(() => {
     // Splash ekranını 3 saniye göster
@@ -288,6 +291,22 @@ export default function App() {
     }, 3000);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  // ✅ Notification listener'larını uygulama başlarken kur
+  useEffect(() => {
+    console.log('🔔 Notification listenerlar kuruluyor...');
+    const listeners = setupNotificationListeners();
+    console.log('✅ Notification listenerlar kuruldu');
+    setNotificationListeners(listeners);
+
+
+    return () => {
+      if (listeners) {
+        console.log('🔴 Notification listenerlar kaldırılıyor...');
+        removeNotificationListeners(listeners);
+      }
+    };
   }, []);
 
   // Splash ekranı göster
