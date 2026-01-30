@@ -1,3 +1,4 @@
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -347,7 +348,8 @@ export default function HomeScreen() {
             style={styles.notificationButton}
             onPress={() => navigation.navigate('NotificationsScreen')}
           >
-            <Text style={styles.notificationIcon}>🔔</Text>
+            {/* <Text style={styles.notificationIcon}>🔔</Text> */}
+            <MaterialCommunityIcons name="bell-outline" size={20} color="#FFFFFF"/>
             {unreadNotificationCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>
