@@ -1,26 +1,32 @@
 {
   "expo": {
-    "name": "İslami Hayat",
+    "name": "RamazanApp",
     "slug": "RamazanApp",
-    "version": "1.0.2",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ramazan.app",
+      "config": {
+        "googleMapsApiKey": "AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY"
+      }
+    },
+
     "android": {
       "package": "com.ramazan.app",
-      "versionCode": 5,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#00897B",
-        "foregroundImage": "./assets/images/icon.png"
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundColor": "#00897B"
       },
       "permissions": [
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED",
-        "WAKE_LOCK",
-        "FOREGROUND_SERVICE",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "POST_NOTIFICATIONS",
-        "INTERNET"
+        "VIBRATE"
       ],
       "config": {
         "googleMaps": {
@@ -28,10 +34,12 @@
         }
       }
     },
+
     "plugins": [
-      "expo-location",
-      "expo-notifications"
+      "expo-router",
+      "expo-location"
     ],
+
     "extra": {
       "eas": {
         "projectId": "9cf42110-bc97-476d-b3a6-23df42b48c3b"
