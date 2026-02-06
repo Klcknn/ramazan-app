@@ -2,7 +2,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { getNotificationSettings, requestNotificationPermission, saveNotificationSettings } from '../services/notificationService';
+import { getNotificationSettings, listScheduledNotifications, requestNotificationPermission, saveNotificationSettings } from '../services/notificationService';
+
+
+import * as Notifications from 'expo-notifications'; // ← YENİ
+import { addTestNotification } from '../services/Notificationrenewalhelper'; // ← YENİ
 
 export default function SettingsScreen({ navigation }) {
   // Bildirim Ayarları
@@ -65,6 +69,85 @@ export default function SettingsScreen({ navigation }) {
       setFavoritesCount(0);
     }
   };
+
+  // ✅ YENİ FONKSİYON EKLE (diğer handler'ların yanına)
+
+// Test bildirimi gönder
+const handleTestNotification = async () => {
+  try {
+    // 1. İzin kontrol
+    const hasPermission = await requestNotificationPermission();
+    if (!hasPermission) {
+      Alert.alert('Hata', 'Bildirim izni verilmedi');
+      return;
+    }
+
+    // 2. Test bildirimi planla (5 saniye sonra)
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🕌 Test Bildirimi',
+        body: 'Bu bir test bildirimidir. Bildirimler çalışıyor! ✅',
+        sound: true,
+        data: { type: 'test' },
+      },
+      trigger: {
+        seconds: 5,
+      },
+    });
+
+    // 3. In-app listeye ekle
+    await addTestNotification();
+
+    Alert.alert(
+      'Başarılı',
+      'Test bildirimi 5 saniye sonra gelecek. Uygulamayı arka plana alın ve bekleyin.',
+      [{ text: 'Tamam' }]
+    );
+
+    console.log('✅ Test bildirimi planlandı');
+  } catch (error) {
+    console.error('❌ Test bildirimi hatası:', error);
+    Alert.alert('Hata', 'Test bildirimi gönderilemedi');
+  }
+};
+
+// Planlanan bildirimleri göster
+const handleShowScheduledNotifications = async () => {
+  try {
+    const scheduled = await listScheduledNotifications();
+    
+    if (scheduled.length === 0) {
+      Alert.alert(
+        'Bilgi',
+        'Hiç planlanmış bildirim yok. Lütfen namaz vakti bildirimlerini aktif edin.',
+        [{ text: 'Tamam' }]
+      );
+      return;
+    }
+
+    // Bildirimleri grupla
+    const byType = scheduled.reduce((acc, notif) => {
+      const type = notif.content?.data?.prayerName || 'Diğer';
+      acc[type] = (acc[type] || 0) + 1;
+      return acc;
+    }, {});
+
+    const message = Object.entries(byType)
+      .map(([type, count]) => `${type}: ${count} bildirim`)
+      .join('\n');
+
+    Alert.alert(
+      `📊 Planlanan Bildirimler (${scheduled.length})`,
+      message,
+      [{ text: 'Tamam' }]
+    );
+
+    console.log('📋 Planlanan bildirimler:', scheduled);
+  } catch (error) {
+    console.error('❌ Listeleme hatası:', error);
+    Alert.alert('Hata', 'Bildirimler listelenemedi');
+  }
+};
 
   // Bildirim toggle handler
   const handleNotificationToggle = async (value) => {
@@ -269,6 +352,24 @@ export default function SettingsScreen({ navigation }) {
         'İslami Hayat',
         'Versiyon: 1.0.0\n\n© 2026 Tüm hakları saklıdır.\n\nBu uygulama, Müslümanların günlük ibadetlerini kolaylaştırmak için geliştirilmiştir.\n\nÖzellikler:\n• Namaz vakitleri\n• Kıble pusulası\n• Günlük dua ve hadisler\n• Tesbih\n• Yakın camiler\n• Ve daha fazlası...'
       ),
+    },
+    // ✅ YENİ: Test butonu
+    {
+      icon: '🔔',
+      label: 'Test Bildirimi Gönder',
+      action: handleTestNotification,
+    },
+    // ✅ YENİ: Planlanan bildirimleri göster
+    {
+      icon: '📊',
+      label: 'Planlanan Bildirimleri Gör',
+      action: handleShowScheduledNotifications,
+    },
+    
+    {
+      icon: 'ℹ️',
+      label: 'Hakkında',
+      action: () => Alert.alert(/* ... */),
     },
   ];
 

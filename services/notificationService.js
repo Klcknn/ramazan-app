@@ -6,12 +6,13 @@ import { Alert, Linking, Platform } from 'react-native';
 // ✅ Bildirim helper'ı import et
 import { addNotification } from './Notificationrenewalhelper';
 
-// Bildirim davranışını ayarla
+// ✅ Bildirim davranışını ayarla - Ses ve görünürlük için maksimum öncelik
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: true,
+    shouldPlaySound: true, // Sistem sesi çalacak
     shouldSetBadge: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
   }),
 });
 
@@ -23,21 +24,24 @@ const STORAGE_KEYS = {
 };
 
 /**
- * Android bildirim kanalı oluştur
+ * ✅ Android bildirim kanalı oluştur - Özel ses dosyası için
  */
 const createNotificationChannel = async () => {
   if (Platform.OS === 'android') {
+    // ✅ NAMAZ VAKİTLERİ KANALI - Maksimum öncelik
     await Notifications.setNotificationChannelAsync('prayer-times', {
-      name: 'Namaz Vakitleri',
+      name: 'Namaz Vakitleri - Ezan Sesi',
       importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      sound: 'default',
+      vibrationPattern: [0, 500, 250, 500], // Daha belirgin titreşim
+      sound: 'adhan.mp3', // ✅ Özel ses dosyası - assets/sounds/adhan.mp3
       enableLights: true,
       lightColor: '#00FF00',
       lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-      bypassDnd: true,
+      bypassDnd: true, // ✅ Rahatsız Etmeyin modunu geç
+      showBadge: true,
     });
 
+    // Önemli günler kanalı
     await Notifications.setNotificationChannelAsync('important-days', {
       name: 'Önemli Günler',
       importance: Notifications.AndroidImportance.HIGH,
@@ -47,7 +51,7 @@ const createNotificationChannel = async () => {
       lightColor: '#FFD700',
     });
 
-    console.log('✅ Android bildirim kanalları oluşturuldu');
+    console.log('✅ Android bildirim kanalları oluşturuldu (Ezan sesi dahil)');
   }
 };
 
@@ -60,6 +64,7 @@ export const requestNotificationPermission = async () => {
       console.warn('⚠️ Emülatör tespit edildi - bildirimler sınırlı çalışabilir');
     }
 
+    // ✅ Önce kanalları oluştur
     await createNotificationChannel();
 
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -73,7 +78,7 @@ export const requestNotificationPermission = async () => {
     if (finalStatus !== 'granted') {
       Alert.alert(
         'Bildirim İzni Gerekli',
-        'Namaz vakti bildirimleri almak için lütfen ayarlardan bildirim izni verin.',
+        'Namaz vakti bildirimleri ve ezan sesi için lütfen ayarlardan bildirim izni verin.',
         [
           { text: 'Tamam', style: 'cancel' },
           { text: 'Ayarlara Git', onPress: () => Linking.openSettings() }
@@ -82,7 +87,17 @@ export const requestNotificationPermission = async () => {
       return false;
     }
 
-    console.log('✅ Bildirim izni verildi');
+    // ✅ Android için ses izinlerini kontrol et
+    if (Platform.OS === 'android') {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true, // ✅ Arka planda aktif kal
+        shouldDuckAndroid: true,
+      });
+    }
+
+    console.log('✅ Bildirim ve ses izinleri verildi');
     return true;
   } catch (error) {
     console.error('❌ Bildirim izni hatası:', error);
@@ -91,7 +106,7 @@ export const requestNotificationPermission = async () => {
 };
 
 /**
- * Ezan sesi çal
+ * ✅ Ezan sesi çal - Uygulama ön planda olduğunda
  */
 export const playAdhan = async () => {
   try {
@@ -101,9 +116,21 @@ export const playAdhan = async () => {
       return;
     }
 
+    // ✅ Ses modunu yapılandır
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true, // iOS'ta sessiz modda bile çal
+      staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+    });
+
     const { sound } = await Audio.Sound.createAsync(
       require('../assets/sounds/adhan.mp3'),
-      { shouldPlay: true }
+      { 
+        shouldPlay: true,
+        volume: 1.0,
+        isMuted: false,
+      }
     );
 
     console.log('🔊 Ezan sesi çalınıyor...');
@@ -114,33 +141,46 @@ export const playAdhan = async () => {
         console.log('✅ Ezan sesi tamamlandı');
       }
     });
+
+    return sound;
   } catch (error) {
     console.error('❌ Ezan sesi hatası:', error);
+    Alert.alert(
+      'Ses Hatası',
+      'Ezan sesi çalınamadı. Lütfen ses dosyasının yüklü olduğundan emin olun.'
+    );
   }
 };
 
 /**
- * Tek bir namaz vakti için bildirim planla
- * Android: Önümüzdeki 30 gün için günlük bildirimler
- * iOS: Calendar trigger ile tekrarlayan bildirim
+ * ✅ Tek bir namaz vakti için bildirim planla
+ * Android: Özel ses kanalı ile bildirim
+ * iOS: Sistem bildirimi
  */
 const scheduleNotificationForPrayer = async (prayerName, prayerTime, icon) => {
   try {
     const [hours, minutes] = prayerTime.split(':').map(Number);
     const notificationIds = [];
 
-    // Bildirim içeriği
+    // ✅ Bildirim içeriği - Ses dahil
     const content = {
       title: `${icon} ${prayerName} Vakti Girdi`,
       body: `${prayerName} namazı vaktine girmiştir. Haydi namaza! 🕌`,
-      sound: true,
-      data: { prayerName, prayerTime },
+      sound: Platform.OS === 'android' ? 'adhan.mp3' : 'default', // ✅ Android'de özel ses
+      data: { 
+        prayerName, 
+        prayerTime,
+        type: 'prayer',
+        shouldPlaySound: true, // ✅ Listener için işaret
+      },
     };
 
     if (Platform.OS === 'android') {
       content.priority = Notifications.AndroidNotificationPriority.MAX;
-      content.channelId = 'prayer-times';
-      content.vibrate = [0, 250, 250, 250];
+      content.channelId = 'prayer-times'; // ✅ Özel ses kanalı
+      content.vibrate = [0, 500, 250, 500];
+      content.sticky = false;
+      content.autoDismiss = true;
 
       // ANDROID: Her gün için ayrı bildirim planla (30 gün)
       const now = new Date();
@@ -160,7 +200,7 @@ const scheduleNotificationForPrayer = async (prayerName, prayerTime, icon) => {
             trigger: {
               type: 'date',
               date: notificationDate,
-              channelId: 'prayer-times',
+              channelId: 'prayer-times', // ✅ Kanal ID'si
             },
           });
           
@@ -168,7 +208,7 @@ const scheduleNotificationForPrayer = async (prayerName, prayerTime, icon) => {
         }
       }
 
-      console.log(`✅ ${prayerName} - ${notificationIds.length} bildirim planlandı (30 gün)`);
+      console.log(`✅ ${prayerName} - ${notificationIds.length} bildirim planlandı (Ezan sesli)`);
     } else {
       // iOS: Calendar trigger kullan
       const notificationId = await Notifications.scheduleNotificationAsync({
@@ -255,7 +295,7 @@ export const schedulePrayerNotifications = async (prayerTimes) => {
 
     // Kontrol için planlanan bildirimleri say
     const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log('📋 Toplam planlanan bildirim sayısı:', scheduled.length);
+    console.log(`📊 Toplam ${scheduled.length} bildirim planlandı (Sistem)`);
 
     const totalByPrayer = allScheduledIds.reduce((sum, p) => sum + p.count, 0);
     console.log(`✅ ${allScheduledIds.length} namaz vakti için ${totalByPrayer} bildirim planlandı`);
@@ -268,7 +308,7 @@ export const schedulePrayerNotifications = async (prayerTimes) => {
 };
 
 /**
- * Bildirimleri yeniden planla (her 2 haftada bir çağrılmalı)
+ * Bildirimleri yeniden planla
  */
 export const renewPrayerNotifications = async (prayerTimes) => {
   console.log('🔄 Bildirimler yenileniyor...');
@@ -455,14 +495,20 @@ export const getNotificationSettings = async () => {
 };
 
 /**
- * Bildirim listener'ı kur
+ * ✅ Bildirim listener'ı kur - Ön planda ezan çalmak için
  */
 export const setupNotificationListeners = () => {
+  // Bildirime tıklandığında
   const notificationResponseListener = Notifications.addNotificationResponseReceivedListener(
     async (response) => {
-      const { prayerName } = response.notification.request.content.data || {};
+      const { prayerName, type, shouldPlaySound } = response.notification.request.content.data || {};
+      
       console.log('🔔 Bildirime tıklandı:', prayerName);
-      await playAdhan();
+      
+      // ✅ Namaz vakti bildirimi ise ezan çal (uygulama ön plandaysa)
+      if (type === 'prayer' && shouldPlaySound) {
+        await playAdhan();
+      }
       
       // ✅ Bildirimi in-app listeye ekle
       const { title, body } = response.notification.request.content;
@@ -480,11 +526,17 @@ export const setupNotificationListeners = () => {
     }
   );
 
+  // Bildirim uygulama ön plandayken alındığında
   const notificationListener = Notifications.addNotificationReceivedListener(
     async (notification) => {
-      const { prayerName } = notification.request.content.data || {};
-      console.log('📬 Bildirim alındı:', prayerName);
-      await playAdhan();
+      const { prayerName, type, shouldPlaySound } = notification.request.content.data || {};
+      
+      console.log('📬 Bildirim alındı (ön plan):', prayerName);
+      
+      // ✅ Uygulama ön plandaysa ezan çal
+      if (type === 'prayer' && shouldPlaySound) {
+        await playAdhan();
+      }
       
       // ✅ Bildirimi in-app listeye ekle
       const { title, body } = notification.request.content;
@@ -502,6 +554,7 @@ export const setupNotificationListeners = () => {
     }
   );
 
+  console.log('✅ Bildirim listener\'ları kuruldu');
   return { notificationResponseListener, notificationListener };
 };
 
@@ -511,4 +564,5 @@ export const setupNotificationListeners = () => {
 export const removeNotificationListeners = (listeners) => {
   listeners?.notificationResponseListener?.remove();
   listeners?.notificationListener?.remove();
+  console.log('🔴 Bildirim listener\'ları kaldırıldı');
 };

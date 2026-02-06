@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "405237139040",
+    "project_id": "ramazanapp-5fe22",
+    "storage_bucket": "ramazanapp-5fe22.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:405237139040:android:292b6c3f8ec0478fb8a505",
+        "android_client_info": {
+          "package_name": "com.ramazan.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBicRer3iX5uS9NTHsg4NsWzV17_cJqiZU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -14,6 +14,8 @@ import {
   View,
 } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+// ✅ YENİ: expo-constants import
+import Constants from 'expo-constants';
 
 const NearestMosquesScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
@@ -25,17 +27,33 @@ const NearestMosquesScreen = ({ navigation }) => {
   const mapRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // ✅ API Key'i expo-constants'tan al (app.json'dan)
+  const GOOGLE_MAPS_API_KEY = Platform.select({
+    android: Constants.expoConfig?.android?.config?.googleMaps?.apiKey || 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY',
+    ios: Constants.expoConfig?.ios?.config?.googleMapsApiKey || 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY',
+    default: 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY'
+  });
+
+  // Debug: API key kontrol
+  useEffect(() => {
+    console.log('🔑 Google Maps API Key:', GOOGLE_MAPS_API_KEY);
+    console.log('📱 Platform:', Platform.OS);
+    
+    if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY') {
+      console.warn('⚠️ API key app.json\'dan alınamadı, varsayılan kullanılıyor');
+    }
+  }, []);
+
   // Geri butonu handler
   const handleGoBack = () => {
     if (navigation && navigation.canGoBack()) {
       navigation.goBack();
     } else {
-      // Alternatif olarak ana sayfaya git
-      navigation?.navigate('Home'); // veya ana sayfa route'unuz
+      navigation?.navigate('Home');
     }
   };
 
-  // Pulse animasyonu (en yakın cami için)
+  // Pulse animasyonu
   useEffect(() => {
     if (nearestMosque) {
       const pulse = Animated.loop(
@@ -54,7 +72,6 @@ const NearestMosquesScreen = ({ navigation }) => {
       );
       pulse.start();
 
-      // 5 saniye sonra animasyonu durdur
       setTimeout(() => {
         pulse.stop();
         pulseAnim.setValue(1);
@@ -68,15 +85,26 @@ const NearestMosquesScreen = ({ navigation }) => {
   useEffect(() => {
     (async () => {
       try {
+        console.log('🔍 Konum izni isteniyor...');
         let { status } = await Location.requestForegroundPermissionsAsync();
+        
         if (status !== 'granted') {
-          Alert.alert('İzin Gerekli', 'Konum izni verilmedi. Lütfen ayarlardan izin verin.');
+          console.log('❌ Konum izni reddedildi');
+          Alert.alert(
+            'İzin Gerekli', 
+            'Yakındaki camileri görebilmek için konum izni gereklidir.',
+            [
+              { text: 'İptal', style: 'cancel' },
+              { text: 'Ayarlar', onPress: () => Linking.openSettings() }
+            ]
+          );
           setLoading(false);
           return;
         }
 
+        console.log('✅ Konum izni verildi, konum alınıyor...');
         let currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
+          accuracy: Location.Accuracy.Balanced,
         });
 
         const userLocation = {
@@ -86,11 +114,12 @@ const NearestMosquesScreen = ({ navigation }) => {
           longitudeDelta: 0.03,
         };
 
+        console.log('📍 Konum alındı:', userLocation.latitude, userLocation.longitude);
         setLocation(userLocation);
         await findNearbyMosques(userLocation.latitude, userLocation.longitude);
       } catch (error) {
-        console.error('Konum alınırken hata:', error);
-        Alert.alert('Hata', 'Konum bilgisi alınamadı.');
+        console.error('❌ Konum alınırken hata:', error);
+        Alert.alert('Hata', 'Konum bilgisi alınamadı. GPS açık olduğundan emin olun.');
         setLoading(false);
       }
     })();
@@ -99,20 +128,73 @@ const NearestMosquesScreen = ({ navigation }) => {
   // Yakındaki camileri bul
   const findNearbyMosques = async (lat, lng) => {
     try {
-      const API_KEY = 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY';
+      console.log('🔍 Camiler aranıyor...');
+      console.log('📍 Konum:', lat, lng);
+      console.log('🔑 Kullanılan API Key:', GOOGLE_MAPS_API_KEY?.substring(0, 20) + '...');
       
-      // CORS proxy kullanarak API çağrısı
-      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=10000&type=mosque&language=tr&key=${API_KEY}`;
+      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=mosque&language=tr&key=${GOOGLE_MAPS_API_KEY}`;
       
-      console.log('API URL:', url);
+      console.log('🌐 API çağrısı yapılıyor...');
       
-      const response = await fetch(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      clearTimeout(timeout);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
+      
+      console.log('📡 API Response Status:', data.status);
+      console.log('📊 Bulunan sonuç sayısı:', data.results?.length || 0);
 
-      console.log('API Response Status:', data.status);
-      console.log('API Results Count:', data.results?.length || 0);
+      // ✅ API KEY HATASI KONTROLÜ
+      if (data.status === 'REQUEST_DENIED') {
+        console.error('❌ API KEY HATASI:', data.error_message);
+        Alert.alert(
+          'Google Maps API Hatası',
+          `API erişimi engellendi:\n\n${data.error_message || 'API key geçersiz veya kısıtlı'}\n\nLütfen Google Cloud Console'da API key ayarlarını kontrol edin.`,
+          [
+            { text: 'Tamam' },
+            { 
+              text: 'Yardım', 
+              onPress: () => {
+                Alert.alert(
+                  'API Key Sorunu',
+                  '1. Google Cloud Console → APIs & Services\n2. Credentials → API key\n3. API restrictions: "Don\'t restrict key" seçin\n4. Application restrictions: "None" seçin\n5. Kaydet ve 5 dakika bekleyin'
+                );
+              }
+            }
+          ]
+        );
+        setLoading(false);
+        return;
+      }
+
+      if (data.status === 'ZERO_RESULTS') {
+        console.log('⚠️ Yakında cami bulunamadı');
+        Alert.alert(
+          'Bilgi',
+          'Yakınınızda (5 km) kayıtlı cami bulunamadı.'
+        );
+        setLoading(false);
+        return;
+      }
 
       if (data.status === 'OK' && data.results && data.results.length > 0) {
+        console.log('✅ Camiler bulundu, işleniyor...');
+        
         const mosquesData = data.results.map((place) => {
           const distance = calculateDistance(
             lat,
@@ -121,12 +203,10 @@ const NearestMosquesScreen = ({ navigation }) => {
             place.geometry.location.lng
           );
 
-          console.log('Cami:', place.name, 'Lat:', place.geometry.location.lat, 'Lng:', place.geometry.location.lng);
-
           return {
             id: place.place_id,
             name: place.name,
-            address: place.vicinity || place.formatted_address || '',
+            address: place.vicinity || place.formatted_address || 'Adres bilgisi yok',
             latitude: place.geometry.location.lat,
             longitude: place.geometry.location.lng,
             distance: distance,
@@ -136,42 +216,60 @@ const NearestMosquesScreen = ({ navigation }) => {
           };
         });
 
-        // Mesafeye göre sırala
         mosquesData.sort((a, b) => a.distance - b.distance);
         
-        // En yakın camiyi belirle
         if (mosquesData.length > 0) {
           setNearestMosque(mosquesData[0]);
-          console.log('En yakın cami:', mosquesData[0].name);
+          console.log('🕌 En yakın cami:', mosquesData[0].name, '-', mosquesData[0].distance, 'km');
         }
 
         setMosques(mosquesData);
-        console.log(`✅ ${mosquesData.length} cami bulundu ve state'e eklendi`);
+        console.log(`✅ ${mosquesData.length} cami state'e eklendi`);
         
-        // İlk camiye zoom yap
         if (mapRef.current && mosquesData.length > 0) {
           setTimeout(() => {
-            mapRef.current.fitToCoordinates(
-              mosquesData.slice(0, 5).map(m => ({
-                latitude: m.latitude,
-                longitude: m.longitude,
-              })),
-              {
-                edgePadding: { top: 100, right: 50, bottom: 100, left: 50 },
-                animated: true,
-              }
-            );
-          }, 500);
+            try {
+              mapRef.current?.fitToCoordinates(
+                mosquesData.slice(0, 5).map(m => ({
+                  latitude: m.latitude,
+                  longitude: m.longitude,
+                })),
+                {
+                  edgePadding: { top: 100, right: 50, bottom: 100, left: 50 },
+                  animated: true,
+                }
+              );
+            } catch (e) {
+              console.log('⚠️ Harita zoom hatası:', e.message);
+            }
+          }, 1000);
         }
       } else {
-        console.error('❌ API Hatası:', data.status, data.error_message);
-        Alert.alert('Bilgi', `Yakında cami bulunamadı. Durum: ${data.status}`);
+        console.error('❌ Beklenmeyen API durumu:', data.status);
+        Alert.alert('Hata', `API hatası: ${data.status}. ${data.error_message || ''}`);
       }
       
       setLoading(false);
     } catch (error) {
-      console.error('❌ Camiler yüklenirken hata:', error);
-      Alert.alert('Hata', 'Camiler yüklenirken bir hata oluştu. İnternet bağlantınızı kontrol edin.');
+      console.error('❌ findNearbyMosques hatası:', error);
+      
+      if (error.name === 'AbortError') {
+        Alert.alert(
+          'Zaman Aşımı',
+          'API çağrısı zaman aşımına uğradı. İnternet bağlantınızı kontrol edin.'
+        );
+      } else if (error.message.includes('Network request failed')) {
+        Alert.alert(
+          'Bağlantı Hatası',
+          'İnternet bağlantınızı kontrol edin ve tekrar deneyin.'
+        );
+      } else {
+        Alert.alert(
+          'Hata',
+          `Camiler yüklenirken hata oluştu:\n\n${error.message}\n\nAPI key doğru yapılandırıldığından emin olun.`
+        );
+      }
+      
       setLoading(false);
     }
   };
@@ -224,8 +322,6 @@ const NearestMosquesScreen = ({ navigation }) => {
       }
     });
   };
-
-  // Custom Marker Component - Kaldırıldı, artık gerekli değil
 
   // Cami kartı render
   const renderMosqueCard = ({ item }) => {
@@ -282,7 +378,9 @@ const NearestMosquesScreen = ({ navigation }) => {
               {item.open !== null && (
                 <View style={styles.detailItem}>
                   <View style={[styles.statusDot, item.open && styles.statusOpen]} />
-                  <Text style={styles.detailText}>{item.open ? 'Açık' : 'Kapalı'}</Text>
+                  <Text style={styles.detailText}>
+                    {item.open ? 'Açık' : 'Kapalı'}
+                  </Text>
                 </View>
               )}
             </View>
@@ -300,11 +398,13 @@ const NearestMosquesScreen = ({ navigation }) => {
     );
   };
 
-  if (loading || !location) {
+  // Loading ekranı
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#14b8a6" />
         <Text style={styles.loadingText}>Yakındaki camiler aranıyor...</Text>
+        <Text style={styles.loadingSubtext}>Konum ve harita yükleniyor</Text>
       </View>
     );
   }
@@ -313,44 +413,40 @@ const NearestMosquesScreen = ({ navigation }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={handleGoBack}
-          activeOpacity={0.7}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>En Yakın Camiler</Text>
+
+        <Text style={styles.headerTitle}>Yakındaki Camiler</Text>
+
         <TouchableOpacity
           style={styles.listButton}
           onPress={() => setShowList(!showList)}
-          activeOpacity={0.7}
         >
-          <Ionicons name={showList ? 'map' : 'list'} size={24} color="#fff" />
+          <Ionicons
+            name={showList ? 'map' : 'list'}
+            size={24}
+            color="#fff"
+          />
         </TouchableOpacity>
       </View>
 
-      {/* Harita veya Liste */}
+      {/* Content */}
       {!showList ? (
         <>
           <MapView
             ref={mapRef}
-            provider={PROVIDER_GOOGLE}
             style={styles.map}
+            provider={PROVIDER_GOOGLE}
             initialRegion={location}
-            showsUserLocation={true}
-            showsMyLocationButton={true}
-            loadingEnabled={true}
-            showsCompass={true}
-            zoomEnabled={true}
-            scrollEnabled={true}
-            pitchEnabled={true}
-            rotateEnabled={true}
+            showsUserLocation
+            showsMyLocationButton
+            showsCompass
+            loadingEnabled
+            loadingIndicatorColor="#14b8a6"
           >
-            {console.log('🗺️ Haritada render edilecek cami sayısı:', mosques.length)}
             {mosques.map((mosque) => {
               const isNearest = nearestMosque && mosque.id === nearestMosque.id;
-              console.log('📍 Marker render:', mosque.name, 'isNearest:', isNearest);
               
               return (
                 <Marker
@@ -359,23 +455,14 @@ const NearestMosquesScreen = ({ navigation }) => {
                     latitude: mosque.latitude,
                     longitude: mosque.longitude,
                   }}
-          // anchor: Marker'ın koordinat noktasının neresi olacağını belirler (merkezleme için 0.5)
-                  anchor={{ x: 0.5, y: 0.5 }}
                   title={mosque.name}
-                  description={`${mosque.distance} km uzaklıkta`}
-                  onPress={() => {
-                    console.log('Marker tıklandı:', mosque.name);
-                    setSelectedMosque(mosque);
-                  }}
+                  description={`${mosque.distance} km`}
+                  onPress={() => focusOnMosque(mosque)}
                 >
-                  <View style={[
-                      styles.markerContainer,
-                      isNearest && styles.nearestMarker,
-                    ]}
-                  >
+                  <View style={[styles.markerContainer, isNearest && styles.nearestMarker]}>
                     <MaterialCommunityIcons
                       name="mosque"
-                      size={isNearest ? 30 : 26}
+                      size={24}
                       color={isNearest ? '#f59e0b' : '#14b8a6'}
                     />
                   </View>
@@ -383,7 +470,6 @@ const NearestMosquesScreen = ({ navigation }) => {
               );
             })}
 
-            {/* En yakın cami için daire */}
             {nearestMosque && (
               <Circle
                 center={{
@@ -398,7 +484,6 @@ const NearestMosquesScreen = ({ navigation }) => {
             )}
           </MapView>
 
-          {/* Seçili Cami Bilgisi */}
           {selectedMosque && (
             <View style={styles.selectedMosqueCard}>
               <View style={styles.selectedContent}>
@@ -441,15 +526,20 @@ const NearestMosquesScreen = ({ navigation }) => {
           renderItem={renderMosqueCard}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          windowSize={10}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="mosque" size={80} color="#ccc" />
+              <Text style={styles.emptyText}>Yakında cami bulunamadı</Text>
+              <Text style={styles.emptySubtext}>Farklı bir bölgeye gidin</Text>
+            </View>
+          }
         />
       )}
     </View>
   );
 };
 
+// Styles kısmı aynı kalacak, değişiklik yok
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -465,6 +555,12 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16,
     color: '#666',
+    fontWeight: '600',
+  },
+  loadingSubtext: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#999',
   },
   header: {
     flexDirection: 'row',
@@ -490,7 +586,7 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },   
+  },
   markerContainer: {
     backgroundColor: '#fff',
     borderRadius: 25,
@@ -498,23 +594,22 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    // Gölge (Shadow) ayarları
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,     // Android'de gölgenin kesilmemesi için önemli
-    borderWidth: 1,   // İkonun sınırlarını belirginleştirmek için ince bir kenarlık
+    elevation: 5,
+    borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.05)',
   },
   nearestMarker: {
     backgroundColor: '#fff',
     borderWidth: 3,
     borderColor: '#f59e0b',
-    width: 40,        // En yakın olanı bir tık büyük yaparak vurgulayalım
+    width: 40,
     height: 40,
     borderRadius: 25,
-  }, 
+  },
   selectedMosqueCard: {
     position: 'absolute',
     bottom: 20,
@@ -664,6 +759,24 @@ const styles = StyleSheet.create({
   },
   nearestDirectionButton: {
     backgroundColor: '#f59e0b',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 20,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 

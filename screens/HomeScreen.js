@@ -8,7 +8,8 @@ import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView
 import ViewShot from 'react-native-view-shot';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
-import { removeNotificationListeners, setupNotificationListeners } from '../services/notificationService';
+import { listScheduledNotifications, removeNotificationListeners, schedulePrayerNotifications, setupNotificationListeners } from '../services/notificationService';
+
 import { getNextPrayer, getPrayerTimes } from '../services/prayerTimesAPI';
 
 const { width } = Dimensions.get('window');
@@ -240,6 +241,23 @@ export default function HomeScreen() {
         setNextPrayer(next);
         
         console.log('✅ Namaz vakitleri alındı:', times);
+        
+        // ✅ YENİ: Bildirimleri planla
+        console.log('🔔 Bildirimler planlanıyor...');
+        try {
+          const scheduled = await schedulePrayerNotifications(times);
+          if (scheduled) {
+            console.log('✅ Bildirimler başarıyla planlandı');
+            
+            // Debug: Planlanan bildirimleri listele
+            const scheduledList = await listScheduledNotifications();
+            console.log(`📊 Toplam ${scheduledList.length} bildirim planlandı`);
+          } else {
+            console.log('⚠️ Bildirimler planlanamadı (izin yok veya kapalı)');
+          }
+        } catch (notifError) {
+          console.error('❌ Bildirim planlama hatası:', notifError);
+        }
       } else {
         Alert.alert(
           'Konum Gerekli',
@@ -261,6 +279,41 @@ export default function HomeScreen() {
       setLoading(false);
     }
   };
+  /* const fetchPrayerTimes = async () => {
+    try {
+      setLoading(true);
+      
+      if (location?.coords) {
+        const { latitude, longitude } = location.coords;
+        const times = await getPrayerTimes(latitude, longitude);
+        setPrayerTimes(times);
+        
+        const next = getNextPrayer(times);
+        setNextPrayer(next);
+        
+        console.log('✅ Namaz vakitleri alındı:', times);
+      } else {
+        Alert.alert(
+          'Konum Gerekli',
+          'Namaz vakitlerini gösterebilmek için konum izni gereklidir.',
+          [{ text: 'Tamam' }]
+        );
+      }
+    } catch (error) {
+      console.error('❌ Namaz vakitleri hatası:', error);
+      Alert.alert(
+        'Hata', 
+        'Namaz vakitleri alınamadı. Tekrar denemek ister misiniz?',
+        [
+          { text: 'İptal', style: 'cancel' },
+          { text: 'Tekrar Dene', onPress: fetchPrayerTimes }
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  }; 
+  */
 
   const onRefresh = async () => {
     setRefreshing(true);
