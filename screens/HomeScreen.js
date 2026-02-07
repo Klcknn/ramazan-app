@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { LocationContext } from '../context/LocationContext';
 import { fetchDailyContent } from '../services/DailyContentService';
@@ -431,8 +431,10 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
+      <ImageBackground source={require("../assets/images/header_cami.jpg")} style={styles.backgroundImage} resizeMode="cover">
+      <View style={styles.overlay} />
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']} 
+        colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} 
         start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={styles.topSection}
       >
@@ -505,6 +507,7 @@ export default function HomeScreen() {
           })}
         </View>
       </LinearGradient>
+      </ImageBackground>
 
       <ScrollView 
         style={styles.bottomSection} 
@@ -539,12 +542,12 @@ export default function HomeScreen() {
                 }
               }}
             >
-               <LinearGradient colors={['#00897B', '#26A69A', '#4DB6AC']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.featureCard}>
+               <LinearGradient colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.featureCard}>
                 <MaterialCommunityIcons name={feature.icon} size={25} color="#FFFFFF" style={{ marginBottom: 8 }} />
                 <Text style={styles.featureName}>{feature.name}</Text>
               </LinearGradient>
               {/* 
-              <LinearGradient colors={['#00897B', '#26A69A', '#4DB6AC']} style={styles.featureIconContainer}>
+              <LinearGradient colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} style={styles.featureIconContainer}>
                 <MaterialCommunityIcons style={styles.featureIcon} name={feature.icon} size={28} color="#FFFFFF" />
               </LinearGradient>
               <Text style={styles.featureName}>{feature.name}</Text> 
@@ -878,6 +881,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
+  },
+  backgroundImage: {
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    overflow: 'hidden',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   topSection: {
     paddingTop: 50,
