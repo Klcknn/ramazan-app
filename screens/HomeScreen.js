@@ -25,6 +25,12 @@ export default function HomeScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [notificationListeners, setNotificationListeners] = useState(null);
   
+  // Anlık geri sayım için state
+  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  
+  // Header slider için
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
   // Günlük hadis ve dua
   const [dailyDua, setDailyDua] = useState(null);
   const [dailyHadis, setDailyHadis] = useState(null);
@@ -50,6 +56,63 @@ export default function HomeScreen() {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Anlık geri sayım güncellemesi
+  useEffect(() => {
+    if (!nextPrayer) return;
+    
+    const updateCountdown = () => {
+      const now = new Date();
+      const [targetHours, targetMinutes] = nextPrayer.time.split(':').map(Number);
+      
+      // Hedef vakti oluştur
+      const target = new Date();
+      target.setHours(targetHours, targetMinutes, 0, 0);
+      
+      // Eğer hedef geçmişse, yarına al
+      if (target <= now) {
+        target.setDate(target.getDate() + 1);
+      }
+      
+      // Farkı hesapla
+      const diff = target - now;
+      
+      if (diff <= 0) {
+        setCountdown({ hours: 0, minutes: 0, seconds: 0 });
+        return;
+      }
+      
+      const totalSeconds = Math.floor(diff / 1000);
+      const remainingHours = Math.floor(totalSeconds / 3600);
+      const remainingMinutes = Math.floor((totalSeconds % 3600) / 60);
+      const remainingSeconds = totalSeconds % 60;
+      
+      setCountdown({ 
+        hours: remainingHours, 
+        minutes: remainingMinutes, 
+        seconds: remainingSeconds 
+      });
+    };
+    
+    // İlk güncelleme
+    updateCountdown();
+    
+    // Her saniye güncelle
+    const interval = setInterval(updateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, [nextPrayer, currentTime]);
+
+  // Header resim slider - her 5 saniyede bir değiş
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => 
+        (prevIndex + 1) % headerImages.length
+      );
+    }, 60000); // 60 saniye
+
+    return () => clearInterval(interval);
   }, []);
 
   // Bildirim listener'larını kur
@@ -391,6 +454,14 @@ export default function HomeScreen() {
    
  
 
+  // Header arka plan resimleri - otomatik slider
+  const headerImages = [
+    require('../assets/images/header_cami.jpg'),
+    require('../assets/images/header_cami2.jpg'),
+    require('../assets/images/header_cami3.jpg'),
+    require('../assets/images/header_cami4.jpg'),
+  ];
+
   // ✅ 5x2 Grid için 10 özellik
   const features = [
     { name: 'Tesbih', icon: 'counter', screen: 'Tesbih' },
@@ -431,7 +502,11 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground source={require("../assets/images/header_cami.jpg")} style={styles.backgroundImage} resizeMode="cover">
+      <ImageBackground 
+        source={headerImages[currentImageIndex]} 
+        style={styles.backgroundImage} 
+        resizeMode="cover"
+      >
       <View style={styles.overlay} />
       <LinearGradient
         colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} 
@@ -466,7 +541,8 @@ export default function HomeScreen() {
               <>
                 {nextPrayer.name} Vaktine{' '}
                 <Text style={styles.highlight}>
-                  {nextPrayer.remaining.hours} saat {nextPrayer.remaining.minutes} dakika
+                  {countdown.hours}:{countdown.minutes < 10 ? '0' : ''}{countdown.minutes}
+                  <Text style={styles.seconds}>:{countdown.seconds < 10 ? '0' : ''}{countdown.seconds}</Text>
                 </Text>{' '}
                 kaldı.
               </>
@@ -509,9 +585,14 @@ export default function HomeScreen() {
       </LinearGradient>
       </ImageBackground>
 
-      <ScrollView 
-        style={styles.bottomSection} 
-        showsVerticalScrollIndicator={false}
+      <ImageBackground
+        source={require('../assets/images/islamic-pattern.jpg')}
+        style={styles.patternBackground}
+        resizeMode="repeat"
+      >
+        <ScrollView 
+          style={styles.bottomSection} 
+          showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -525,7 +606,14 @@ export default function HomeScreen() {
       >
         <View style={styles.featuresHeader}>
           <View style={styles.dragHandle} />
-          <Text style={styles.featuresTitle}>TÜM ÖZELLİKLER</Text>
+          <LinearGradient
+            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.featuresTitleContainer}
+          >
+            <Text style={styles.featuresTitle}>TÜM ÖZELLİKLER</Text>
+          </LinearGradient>
         </View>
 
         {/* ✅ 5x2 Grid */}
@@ -558,7 +646,14 @@ export default function HomeScreen() {
 
         {/* ✅ Ortalanmış başlık */}
         <View style={styles.dailyContentSection}>
-          <Text style={styles.sectionTitle}>GÜNÜN İÇERİĞİ</Text>
+          <LinearGradient
+            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.sectionTitleContainer}
+          >
+            <Text style={styles.sectionTitle}>GÜNÜN İÇERİĞİ</Text>
+          </LinearGradient>
           
           {contentLoading ? (
             <View style={styles.contentLoadingContainer}>
@@ -625,6 +720,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 120 }} />
       </ScrollView>
+      </ImageBackground>
 
       {/* ✅ Dua Modal - Paylaşma ve Favori ile */}
       <Modal
@@ -887,6 +983,19 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     overflow: 'hidden',
   },
+  patternBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  patternOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+  },
+  
   overlay: {
     position: 'absolute',
     top: 0,
@@ -967,6 +1076,14 @@ const styles = StyleSheet.create({
   highlight: {
     fontWeight: 'bold',
     color: '#FFD54F',
+    fontSize: 24,
+  },
+  seconds: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFD54F',
+    position: 'relative',
+    top: -6,
   },
   prayerTimesContainer: {
     flexDirection: 'row',
@@ -1043,14 +1160,17 @@ const styles = StyleSheet.create({
   bottomSection: {
     flex: 1,
     marginTop: -20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
   },
   featuresHeader: {
     alignItems: 'center',
     paddingTop: 15,
-    paddingBottom: 10,
+    paddingBottom: 20,
+    backgroundColor: 'transparent',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
   dragHandle: {
     width: 40,
@@ -1059,11 +1179,34 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginBottom: 15,
   },
+  featuresTitleContainer: {
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 8,
+    shadowColor: '#00897B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   featuresTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     letterSpacing: 1,
+    textAlign: 'center',
+  },
+  sectionTitleContainer: {
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginBottom: 8,
+    shadowColor: '#00897B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   // ✅ 5x2 Grid Styles
   featuresGrid: {
@@ -1130,21 +1273,24 @@ const styles = StyleSheet.create({
   },
   dailyContentSection: {
     paddingHorizontal: 20,
-    marginTop: 25,
+    marginTop: 15,
+    backgroundColor: 'transparent',
+    paddingBottom: 30,
+    alignItems: 'center',
   },
   // ✅ Ortalanmış başlık
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FFFFFF',
     letterSpacing: 1,
-    marginBottom: 15,
-    textAlign: 'center', // Ortalandı
+    textAlign: 'center',
   },
   dailyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
     padding: 18,
+    marginTop: 15,
     marginBottom: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -1153,6 +1299,7 @@ const styles = StyleSheet.create({
     elevation: 5,
     borderWidth: 1,
     borderColor: '#F0F0F0',
+    width: '100%',
   },
   dailyCardHeader: {
     flexDirection: 'row',
@@ -1214,6 +1361,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 15,
   },
   contentLoadingText: {
     marginLeft: 10,
@@ -1222,15 +1371,23 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    borderRadius: 20,
     maxHeight: '85%',
+    width: '100%',
+    maxWidth: 500,
     paddingTop: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',
