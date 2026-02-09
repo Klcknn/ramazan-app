@@ -1,27 +1,29 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Sharing from 'expo-sharing';
 import * as Speech from 'expo-speech';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  ImageBackground,
   Modal,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
+import ViewShot from 'react-native-view-shot';
 // Firebase Web SDK import
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../config/firebase'; // Firebase config dosyanızın yolu
 
 const DuaScreen = ({ navigation }) => {
-  const systemColorScheme = useColorScheme();
-  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+  const [isDarkMode] = useState(false); // Karanlık mod kapalı
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [selectedDua, setSelectedDua] = useState(null);
@@ -29,6 +31,9 @@ const DuaScreen = ({ navigation }) => {
   const [favorites, setFavorites] = useState([]);
   const [fontSize, setFontSize] = useState(16);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // ViewShot ref
+  const viewShotRef = useRef(null);
 
   // Firebase state
   const [duasData, setDuasData] = useState([]);
@@ -226,9 +231,12 @@ const DuaScreen = ({ navigation }) => {
       setIsSpeaking(false);
     } else {
       setIsSpeaking(true);
-      const text = `${dua.title}. ${dua.pronunciation}. ${dua.turkish}`;
+      // Arapça metni okuma
+      const text = dua.arabic;
       Speech.speak(text, {
-        language: 'tr',
+        language: 'ar-SA',         // Arapça (Suudi Arabistan)
+        pitch: 0.80,               // Derin, imam sesi
+        rate: 0.65,                // Çok yavaş, tertil tarzı
         onDone: () => setIsSpeaking(false),
         onStopped: () => setIsSpeaking(false),
         onError: () => setIsSpeaking(false),
@@ -239,13 +247,25 @@ const DuaScreen = ({ navigation }) => {
   // Paylaşma
   const shareDua = async (dua) => {
     try {
-      const message = `${dua.title}\n\nArapça: ${dua.arabic}\n\nOkunuşu: ${dua.pronunciation}\n\nAnlamı: ${dua.turkish}\n\n${dua.meaning}`;
-      await Share.share({
-        message: message,
-        title: dua.title,
-      });
+      if (!viewShotRef.current) {
+        Alert.alert('Hata', 'Görsel oluşturulamadı');
+        return;
+      }
+
+      console.log('📸 Dua görseli oluşturuluyor...');
+      const uri = await viewShotRef.current.capture();
+      console.log('✅ Görsel oluşturuldu:', uri);
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: `${dua.title} - Dua`,
+        });
+        console.log('✅ Paylaşım başarılı');
+      }
     } catch (error) {
-      console.error('Paylaşım hatası:', error);
+      console.error('❌ Paylaşma hatası:', error);
+      Alert.alert('Hata', 'Paylaşım sırasında bir hata oluştu');
     }
   };
 
@@ -325,17 +345,26 @@ const DuaScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Dualar ({duasData.length})</Text>
-        <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)}>
-          <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
+      {/* Ana İçerik - Arka Plan Görselli (Header dahil tümü) */}
+      <ImageBackground
+        source={require('../assets/images/dua_background_image.jpg')}
+        style={styles.backgroundImageFull}
+        imageStyle={styles.backgroundImageStyle}
+        resizeMode="cover"
+      >
+        {/* Header */}
+        <LinearGradient
+          colors={['#00897B', '#26A69A', '#4DB6AC']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
+        >
+          <TouchableOpacity onPress={() => navigation?.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Dualar ({duasData.length})</Text>
+          <View style={{ width: 24 }} />
+        </LinearGradient>
       {/* Arama */}
       <View style={[styles.searchContainer, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
         <Ionicons name="search" size={20} color={theme.textSecondary} />
@@ -416,6 +445,7 @@ const DuaScreen = ({ navigation }) => {
           </View>
         }
       />
+      </ImageBackground>
 
       {/* Dua Detay Modal */}
       <Modal
@@ -425,42 +455,106 @@ const DuaScreen = ({ navigation }) => {
         onRequestClose={() => setShowDuaModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBg }]}>
-            {selectedDua && (
-              <>
-                {/* Modal Header */}
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={2}>
-                    {selectedDua.title}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowDuaModal(false)}>
-                    <Ionicons name="close" size={28} color={theme.text} />
-                  </TouchableOpacity>
-                </View>
+          {/* ViewShot - Paylaşım için görsel (görünmez) */}
+          <View style={{ position: 'absolute', left: -9999, top: 0 }}>
+            <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
+              <LinearGradient
+                colors={['#00897B', '#26A69A', '#4DB6AC']}
+                style={styles.shareImageContainer}
+              >
+                {selectedDua && (
+                  <View style={styles.shareImageContent}>
+                    {/* Header */}
+                    <View style={styles.shareHeader}>
+                      <Text style={styles.shareAppName}>🕌 İslami Hayat</Text>
+                    </View>
 
-                {/* Yazı Boyutu Ayarı */}
-                <View style={styles.fontSizeContainer}>
-                  <Text style={[styles.fontSizeLabel, { color: theme.textSecondary }]}>
-                    Yazı Boyutu
-                  </Text>
-                  <View style={styles.fontSizeButtons}>
-                    <TouchableOpacity
-                      style={[styles.fontButton, { borderColor: theme.border }]}
-                      onPress={() => setFontSize(Math.max(12, fontSize - 2))}
-                    >
-                      <Text style={{ color: theme.text }}>A-</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.fontButton, { borderColor: theme.border }]}
-                      onPress={() => setFontSize(Math.min(24, fontSize + 2))}
-                    >
-                      <Text style={{ color: theme.text }}>A+</Text>
+                    {/* Başlık */}
+                    <View style={styles.shareTitleBox}>
+                      <Text style={styles.shareTitle}>{selectedDua.title}</Text>
+                    </View>
+
+                    {/* Arapça */}
+                    <View style={styles.shareSection}>
+                      <View style={styles.shareSectionHeader}>
+                        <View style={styles.shareLine} />
+                        <Text style={styles.shareSectionTitle}>ARAPÇA</Text>
+                        <View style={styles.shareLine} />
+                      </View>
+                      <Text style={styles.shareArabic}>{selectedDua.arabic}</Text>
+                    </View>
+
+                    {/* Okunuş */}
+                    <View style={styles.shareSection}>
+                      <View style={styles.shareSectionHeader}>
+                        <View style={styles.shareLine} />
+                        <Text style={styles.shareSectionTitle}>OKUNUŞU</Text>
+                        <View style={styles.shareLine} />
+                      </View>
+                      <Text style={styles.sharePronunciation}>{selectedDua.pronunciation}</Text>
+                    </View>
+
+                    {/* Türkçe */}
+                    <View style={styles.shareSection}>
+                      <View style={styles.shareSectionHeader}>
+                        <View style={styles.shareLine} />
+                        <Text style={styles.shareSectionTitle}>TÜRKÇE MEALİ</Text>
+                        <View style={styles.shareLine} />
+                      </View>
+                      <Text style={styles.shareTurkish}>{selectedDua.turkish}</Text>
+                    </View>
+
+                    {/* Footer */}
+                    <View style={styles.shareFooter}>
+                      <Text style={styles.shareFooterText}>📱 İslami Hayat Uygulaması</Text>
+                    </View>
+                  </View>
+                )}
+              </LinearGradient>
+            </ViewShot>
+          </View>
+
+          <ImageBackground
+            source={require('../assets/images/islamic-pattern_2.jpg')}
+            style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
+            imageStyle={{ opacity: 0.12, resizeMode: "cover" }}
+          >
+            <View style={styles.modalContentOverlay}>
+              {selectedDua && (
+                <>
+                  {/* Modal Header */}
+                  <View style={styles.modalHeader}>
+                    <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={2}>
+                      {selectedDua.title}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowDuaModal(false)}>
+                      <Ionicons name="close" size={28} color={theme.text} />
                     </TouchableOpacity>
                   </View>
-                </View>
 
-                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-                  {/* Arapça */}
+                  {/* Yazı Boyutu Ayarı */}
+                  <View style={styles.fontSizeContainer}>
+                    <Text style={[styles.fontSizeLabel, { color: theme.textSecondary }]}>
+                      Yazı Boyutu
+                    </Text>
+                    <View style={styles.fontSizeButtons}>
+                      <TouchableOpacity
+                        style={[styles.fontButton, { borderColor: theme.border }]}
+                        onPress={() => setFontSize(Math.max(12, fontSize - 2))}
+                      >
+                        <Text style={{ color: theme.text }}>A-</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.fontButton, { borderColor: theme.border }]}
+                        onPress={() => setFontSize(Math.min(24, fontSize + 2))}
+                      >
+                        <Text style={{ color: theme.text }}>A+</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                    {/* Arapça */}
                   <View style={styles.duaSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                       ARAPÇA
@@ -537,14 +631,13 @@ const DuaScreen = ({ navigation }) => {
                       size={24}
                       color="#fff"
                     />
-                    <Text style={styles.actionButtonText}>
-                      {favorites.includes(selectedDua.id) ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
-                    </Text>
+                    <Text style={styles.actionButtonText}>Favori Ekle</Text>
                   </TouchableOpacity>
                 </View>
               </>
             )}
           </View>
+          </ImageBackground>
         </View>
       </Modal>
     </View>
@@ -554,6 +647,13 @@ const DuaScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backgroundImageFull: {
+    flex: 1,
+    width: '100%',
+  },
+  backgroundImageStyle: {
+    opacity: 0.5,
   },
   loadingContainer: {
     flex: 1,
@@ -574,10 +674,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14b8a6',
     paddingHorizontal: 15,
     paddingVertical: 15,
     paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerTitle: {
     fontSize: 20,
@@ -715,14 +816,16 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalContent: {
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    maxHeight: '90%',
-    paddingTop: 20,
+    width: '100%',
+    maxWidth: 450,       // Tablet friendly
+    borderRadius: 25,    // Yuvarlak köşeler
+
   },
   modalHeader: {
     flexDirection: 'row',
@@ -734,6 +837,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '700',
+    textAlign: 'center',
     flex: 1,
     marginRight: 10,
   },
@@ -745,7 +849,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   fontSizeLabel: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
   },
   fontSizeButtons: {
@@ -768,7 +872,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionLabel: {
-    fontSize: 12,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: 10,
     letterSpacing: 1,
@@ -789,22 +893,118 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   actionButtons: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    gap: 10,
+    flexDirection: 'row',      // Yan yana
+    gap: 10,                    // Aralarında boşluk
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
+    flex: 1,                   // Eşit genişlik
+    flexDirection: 'row',   // İkon üstte, text altta
+    paddingVertical: 12,
     borderRadius: 12,
-    gap: 10,
   },
   actionButtonText: {
+    fontSize: 16,        // Kompakt
+    fontWeight: '700',
+    textAlignVertical: 'center',
     color: '#fff',
-    fontSize: 16,
+    marginLeft: 6,      // İkon ile text arasında boşluk
+  },
+  // Paylaşım Görseli Stilleri
+  shareImageContainer: {
+    width: 600,
+    paddingVertical: 40,
+    paddingHorizontal: 30,
+  },
+  shareImageContent: {
+    flex: 1,
+  },
+  shareHeader: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  shareAppName: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    letterSpacing: 2,
+  },
+  shareTitleBox: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 20,
+    borderRadius: 15,
+    marginBottom: 25,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  shareTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 32,
+  },
+  shareSection: {
+    marginBottom: 20,
+  },
+  shareSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  shareLine: {
+    flex: 1,
+    height: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  shareSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginHorizontal: 12,
+    letterSpacing: 1.5,
+  },
+  shareArabic: {
+    fontSize: 22,
     fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'right',
+    lineHeight: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 18,
+    borderRadius: 12,
+  },
+  sharePronunciation: {
+    fontSize: 17,
+    color: '#FFFFFF',
+    fontStyle: 'italic',
+    lineHeight: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 18,
+    borderRadius: 12,
+  },
+  shareTurkish: {
+    fontSize: 17,
+    color: '#FFFFFF',
+    lineHeight: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    padding: 18,
+    borderRadius: 12,
+  },
+  shareFooter: {
+    marginTop: 30,
+    paddingTop: 20,
+    borderTopWidth: 2,
+    borderTopColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+  },
+  shareFooterText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 1,
   },
 });
 

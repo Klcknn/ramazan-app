@@ -1,26 +1,29 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Sharing from 'expo-sharing';
 import * as Speech from 'expo-speech';
-import { collection, getDocs } from 'firebase/firestore';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  ImageBackground,
   Modal,
   ScrollView,
-  Share,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from 'react-native';
+import ViewShot from 'react-native-view-shot';
+// Firebase Web SDK import
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 const HadisScreen = ({ navigation }) => {
-  const systemColorScheme = useColorScheme();
-  const [isDarkMode, setIsDarkMode] = useState(systemColorScheme === 'dark');
+  const [isDarkMode] = useState(false); // Karanlık mod kapalı
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [selectedHadis, setSelectedHadis] = useState(null);
@@ -28,6 +31,9 @@ const HadisScreen = ({ navigation }) => {
   const [favorites, setFavorites] = useState([]);
   const [fontSize, setFontSize] = useState(16);
   const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // ViewShot ref
+  const viewShotRef = useRef(null);
 
   const [hadislerData, setHadislerData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -218,13 +224,25 @@ const HadisScreen = ({ navigation }) => {
 
   const shareHadis = async (hadis) => {
     try {
-      const message = `${hadis.title}\n\n${hadis.arabic}\n\n${hadis.turkish}\n\nKaynak: ${hadis.source}\n\n${hadis.explanation}`;
-      await Share.share({
-        message: message,
-        title: hadis.title,
-      });
+      if (!viewShotRef.current) {
+        Alert.alert('Hata', 'Görsel oluşturulamadı');
+        return;
+      }
+
+      console.log('📸 Hadis görseli oluşturuluyor...');
+      const uri = await viewShotRef.current.capture();
+      console.log('✅ Görsel oluşturuldu:', uri);
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/jpeg',
+          dialogTitle: `${hadis.title}`,
+        });
+        console.log('✅ Paylaşım başarılı');
+      }
     } catch (error) {
-      console.error('Paylaşım hatası:', error);
+      console.error('❌ Paylaşma hatası:', error);
+      Alert.alert('Hata', 'Paylaşım sırasında bir hata oluştu');
     }
   };
 
@@ -304,15 +322,25 @@ const HadisScreen = ({ navigation }) => {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <View style={styles.header}>
+      {/* Ana İçerik - Arka Plan Görselli (Header dahil tümü) */}
+      <ImageBackground
+        source={require('../assets/images/hadis_background_image.jpg')}
+        style={styles.backgroundImageFull}
+        imageStyle={styles.backgroundImageStyle}
+        resizeMode="cover"
+      >
+      <LinearGradient
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Hadisler ({hadislerData.length})</Text>
-        <TouchableOpacity onPress={() => setIsDarkMode(!isDarkMode)}>
-          <Ionicons name={isDarkMode ? 'sunny' : 'moon'} size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+        <View style={{ width: 24 }} />
+      </LinearGradient>
 
       <View style={[styles.searchContainer, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
         <Ionicons name="search" size={20} color={theme.textSecondary} />
@@ -391,6 +419,7 @@ const HadisScreen = ({ navigation }) => {
           </View>
         }
       />
+      </ImageBackground>
 
       <Modal
         visible={showHadisModal}
@@ -399,15 +428,21 @@ const HadisScreen = ({ navigation }) => {
         onRequestClose={() => setShowHadisModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.cardBg }]}>
-            {selectedHadis && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={2}>
-                    {selectedHadis.title}
-                  </Text>
-                  <TouchableOpacity onPress={() => setShowHadisModal(false)}>
-                    <Ionicons name="close" size={28} color={theme.text} />
+          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
+            <ImageBackground
+              source={require('../assets/images/islamic-pattern_2.jpg')}
+              style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
+              imageStyle={{ opacity: 0.12, resizeMode: "cover" }}
+            >
+              <View style={styles.modalContentOverlay}>
+                {selectedHadis && (
+                  <>
+                    <View style={styles.modalHeader}>
+                      <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={2}>
+                        {selectedHadis.title}
+                      </Text>
+                      <TouchableOpacity onPress={() => setShowHadisModal(false)}>
+                        <Ionicons name="close" size={28} color={theme.text} />
                   </TouchableOpacity>
                 </View>
 
@@ -511,7 +546,9 @@ const HadisScreen = ({ navigation }) => {
                 </View>
               </>
             )}
-          </View>
+            </View>
+            </ImageBackground>
+          </ViewShot>
         </View>
       </Modal>
     </View>
@@ -520,10 +557,26 @@ const HadisScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  backgroundImageFull: {
+    flex: 1,
+    width: '100%',
+  },
+  backgroundImageStyle: {
+    opacity: 0.6,
+  },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   loadingText: { marginTop: 15, fontSize: 18, fontWeight: '600' },
   loadingSubText: { marginTop: 8, fontSize: 14 },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#14b8a6', paddingHorizontal: 15, paddingVertical: 15, paddingTop: 50 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
   headerTitle: { fontSize: 20, fontWeight: '600', color: '#fff', flex: 1, textAlign: 'center' },
   searchContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginTop: 15, paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, borderWidth: 1, gap: 10 },
   searchInput: { flex: 1, fontSize: 16 },
