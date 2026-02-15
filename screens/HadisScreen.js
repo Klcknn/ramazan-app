@@ -515,7 +515,7 @@ const HadisScreen = ({ navigation }) => {
                       color="#fff"
                     />
                     <Text style={styles.actionButtonText}>
-                      {isSpeaking ? 'Durdur' : 'Sesli Oku'}
+                      {isSpeaking ? 'Dur' : 'Sesli'}
                     </Text>
                   </TouchableOpacity>
 
@@ -540,7 +540,7 @@ const HadisScreen = ({ navigation }) => {
                       color="#fff"
                     />
                     <Text style={styles.actionButtonText}>
-                      {favorites.includes(selectedHadis.id) ? 'Favorilerden Çıkar' : 'Favorilere Ekle'}
+                      Favori
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -556,7 +556,9 @@ const HadisScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1 
+  },
   backgroundImageFull: {
     flex: 1,
     width: '100%',
@@ -564,9 +566,20 @@ const styles = StyleSheet.create({
   backgroundImageStyle: {
     opacity: 0.6,
   },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  loadingText: { marginTop: 15, fontSize: 18, fontWeight: '600' },
-  loadingSubText: { marginTop: 8, fontSize: 14 },
+  loadingContainer: { flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20 
+  },
+  loadingText: { 
+    marginTop: 15, 
+    fontSize: 18, 
+    fontWeight: '600' 
+  },
+  loadingSubText: { 
+    marginTop: 8, 
+    fontSize: 14 
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -577,47 +590,251 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  headerTitle: { fontSize: 20, fontWeight: '600', color: '#fff', flex: 1, textAlign: 'center' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, marginTop: 15, paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, borderWidth: 1, gap: 10 },
-  searchInput: { flex: 1, fontSize: 16 },
-  categoriesWrapper: { marginTop: 15, marginBottom: 10 },
-  categoriesContainer: { paddingHorizontal: 15, paddingVertical: 8, gap: 10, alignItems: 'center' },
-  categoryButton: { marginTop: 1, marginBottom: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 8, height: 40, borderRadius: 20, borderWidth: 1, gap: 6, minWidth: 80 },
-  categoryButtonActive: { backgroundColor: '#14b8a6', borderColor: '#14b8a6' },
-  categoryButtonText: { fontSize: 14, fontWeight: '600' },
-  listContainer: { padding: 15 },
-  hadisCard: { borderRadius: 15, padding: 15, marginBottom: 15, borderWidth: 1, elevation: 3 },
-  hadisCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  hadisTitleContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  hadisTitle: { fontSize: 18, fontWeight: '700', flex: 1 },
-  hadisArabic: { fontWeight: '600', textAlign: 'right', marginBottom: 10, lineHeight: 28 },
-  hadisTurkish: { lineHeight: 22, marginBottom: 10 },
-  hadisCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
-  categoryBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  categoryBadgeText: { fontSize: 12, fontWeight: '600' },
-  sourceText: { fontSize: 11, flex: 1, textAlign: 'right' },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
-  emptyText: { fontSize: 16, marginTop: 15, marginBottom: 20 },
-  refreshButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 25, gap: 8 },
-  refreshButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContent: { borderTopLeftRadius: 25, borderTopRightRadius: 25, maxHeight: '90%', paddingTop: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15 },
-  modalTitle: { fontSize: 22, fontWeight: '700', flex: 1, marginRight: 10 },
-  fontSizeContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 15 },
-  fontSizeLabel: { fontSize: 14, fontWeight: '600' },
-  fontSizeButtons: { flexDirection: 'row', gap: 10 },
-  fontButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  modalScroll: { paddingHorizontal: 20, maxHeight: 400 },
-  hadisSection: { marginBottom: 20 },
-  sectionLabel: { fontSize: 12, fontWeight: '700', marginBottom: 10, letterSpacing: 1 },
-  hadisArabicFull: { fontWeight: '600', textAlign: 'right', lineHeight: 36 },
-  hadisMeaning: { lineHeight: 26 },
-  hadisSource: { fontWeight: '600', lineHeight: 24 },
-  hadisExplanation: { lineHeight: 24 },
-  actionButtons: { paddingHorizontal: 20, paddingVertical: 15, gap: 10 },
-  actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, gap: 10 },
-  actionButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  headerTitle: { 
+    fontSize: 20, 
+    fontWeight: '600', 
+    color: '#fff', 
+    flex: 1, 
+    textAlign: 'center' 
+  },
+  searchContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginHorizontal: 15, 
+    marginTop: 15, 
+    paddingHorizontal: 15, 
+    paddingVertical: 12, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    gap: 10 
+  },
+  searchInput: { 
+    flex: 1, 
+    fontSize: 16 
+  },
+  categoriesWrapper: { 
+    marginTop: 15, 
+    marginBottom: 10 
+  },
+  categoriesContainer: { 
+    paddingHorizontal: 15, 
+    paddingVertical: 8, 
+    gap: 10, 
+    alignItems: 'center' 
+  },
+  categoryButton: { 
+    marginTop: 1, 
+    marginBottom: 1, 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    height: 40, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    gap: 6, 
+    minWidth: 80 
+  },
+  categoryButtonActive: { 
+    backgroundColor: '#14b8a6', 
+    borderColor: '#14b8a6' 
+  },
+  categoryButtonText: { 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
+  listContainer: { 
+    padding: 15 
+  },
+  hadisCard: { 
+    borderRadius: 15, 
+    padding: 15, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    elevation: 3 
+  },
+  hadisCardHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 12 
+  },
+  hadisTitleContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    gap: 10, 
+    flex: 1 
+  },
+  hadisTitle: { 
+    fontSize: 18, 
+    fontWeight: '700', 
+    flex: 1 
+  },
+  hadisArabic: { 
+    fontWeight: '600', 
+    textAlign: 'right', 
+    marginBottom: 10, 
+    lineHeight: 28 
+  },
+  hadisTurkish: { 
+    lineHeight: 22, 
+    marginBottom: 10 
+  },
+  hadisCardFooter: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    gap: 10 
+  },
+  categoryBadge: { 
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: 12 
+  },
+  categoryBadgeText: { 
+    fontSize: 12, 
+    fontWeight: '600' 
+  },
+  sourceText: { 
+    fontSize: 11, 
+    flex: 1, 
+    textAlign: 'right' 
+  },
+  emptyContainer: { 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 60 
+  },
+  emptyText: { 
+    fontSize: 16, 
+    marginTop: 15, 
+    marginBottom: 20 
+  },
+  refreshButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12, 
+    borderRadius: 25, 
+    gap: 8 
+  },
+  refreshButtonText: { 
+    color: '#fff', 
+    fontSize: 16, 
+    fontWeight: '600' 
+  },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: { 
+    width: '100%',
+    height: '80%', 
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  modalContentOverlay: {
+    flex: 1,
+  },
+  modalHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  modalTitle: { 
+    fontSize: 22, 
+    fontWeight: '700', 
+    flex: 1, 
+    marginRight: 10 
+  },
+  fontSizeContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  fontSizeLabel: { 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
+  fontSizeButtons: { 
+    flexDirection: 'row', 
+    gap: 10 
+  },
+  fontButton: { 
+    width: 40, 
+    height: 40, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  modalScroll: { 
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+  },
+  hadisSection: { 
+    marginBottom: 20 
+  },
+  sectionLabel: { 
+    fontSize: 12, 
+    fontWeight: '700', 
+    marginBottom: 10, 
+    letterSpacing: 1 
+  },
+  hadisArabicFull: { 
+    fontWeight: '600', 
+    textAlign: 'right', 
+    lineHeight: 36 
+  },
+  hadisMeaning: { 
+    lineHeight: 26 
+  },
+  hadisSource: { 
+    fontWeight: '600', 
+    lineHeight: 24 
+  },
+  hadisExplanation: { 
+    lineHeight: 24 
+  },
+  actionButtons: { 
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+  },
+  actionButton: { 
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12, 
+    gap: 6,
+  },
+  actionButtonText: { 
+    color: '#fff', 
+    fontSize: 13,
+    fontWeight: '600',
+  },
 });
 
 export default HadisScreen;
+
