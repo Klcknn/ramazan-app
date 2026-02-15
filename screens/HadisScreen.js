@@ -15,7 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 // Firebase Web SDK import
@@ -212,12 +212,18 @@ const HadisScreen = ({ navigation }) => {
       setIsSpeaking(false);
     } else {
       setIsSpeaking(true);
-      const text = `${hadis.title}. ${hadis.turkish}. Kaynak: ${hadis.source}`;
+      const text = hadis.arabic;
+      
       Speech.speak(text, {
-        language: 'tr',
+        language: 'ar-SA',          // Arapça (Suudi Arabistan)
+        pitch: 0.4,                 // ÇOK derin erkek sesi (0.5'ten bile düşük)
+        rate: 0.6,                  // Yavaş ama anlaşılır
         onDone: () => setIsSpeaking(false),
         onStopped: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
+        onError: (error) => {
+          console.error('TTS Hatası:', error);
+          setIsSpeaking(false);
+        },
       });
     }
   };
@@ -443,7 +449,7 @@ const HadisScreen = ({ navigation }) => {
                       </Text>
                       <TouchableOpacity onPress={() => setShowHadisModal(false)}>
                         <Ionicons name="close" size={28} color={theme.text} />
-                  </TouchableOpacity>
+                      </TouchableOpacity>
                 </View>
 
                 <View style={styles.fontSizeContainer}>
@@ -466,7 +472,8 @@ const HadisScreen = ({ navigation }) => {
                   </View>
                 </View>
 
-                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+                <View style={{ flex: 1 }}>
+                <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
                   <View style={styles.hadisSection}>
                     <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>
                       ARAPÇA
@@ -503,6 +510,7 @@ const HadisScreen = ({ navigation }) => {
                     </Text>
                   </View>
                 </ScrollView>
+                </View>
 
                 <View style={styles.actionButtons}>
                   <TouchableOpacity
@@ -556,15 +564,13 @@ const HadisScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
-  },
+  container: { flex: 1 },
   backgroundImageFull: {
     flex: 1,
     width: '100%',
   },
   backgroundImageStyle: {
-    opacity: 0.6,
+    opacity: 0.8,
   },
   loadingContainer: { flex: 1, 
     justifyContent: 'center', 
@@ -732,7 +738,7 @@ const styles = StyleSheet.create({
   },
   modalContent: { 
     width: '100%',
-    height: '80%', 
+    height: '80%',
     borderRadius: 25,
     overflow: 'hidden',
   },
@@ -782,6 +788,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   modalScroll: { 
+    flex: 1,
     paddingHorizontal: 20,
     paddingVertical: 15,
   },
@@ -817,7 +824,6 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.08)',
-    backgroundColor: 'rgba(0,0,0,0.02)',
   },
   actionButton: { 
     flex: 1,
@@ -837,4 +843,3 @@ const styles = StyleSheet.create({
 });
 
 export default HadisScreen;
-
