@@ -435,11 +435,7 @@ const HadisScreen = ({ navigation }) => {
       >
         <View style={styles.modalOverlay}>
           <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
-            <ImageBackground
-              source={require('../assets/images/islamic-pattern_2.jpg')}
-              style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
-              imageStyle={{ opacity: 0.12, resizeMode: "cover" }}
-            >
+            <View style={[styles.modalContent, { backgroundColor: theme.cardBg }]}>
               <View style={styles.modalContentOverlay}>
                 {selectedHadis && (
                   <>
@@ -555,7 +551,7 @@ const HadisScreen = ({ navigation }) => {
               </>
             )}
             </View>
-            </ImageBackground>
+            </View>
           </ViewShot>
         </View>
       </Modal>
@@ -570,7 +566,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backgroundImageStyle: {
-    opacity: 0.8,
+    opacity: 0.4,
   },
   loadingContainer: { flex: 1, 
     justifyContent: 'center', 
