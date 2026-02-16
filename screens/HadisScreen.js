@@ -554,6 +554,41 @@ const HadisScreen = ({ navigation }) => {
             </View>
           </ViewShot>
         </View>
+        
+        {/* Gizli ViewShot - Sadece Paylaşım (1080x1350 Instagram Format) */}
+        <View style={{ position: 'absolute', left: -9999 }}>
+          <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.95 }}>
+            <LinearGradient
+              colors={['#d4e8d4', '#e8f4e8', '#f0f4e8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{ width: 1080, height: 1350, paddingHorizontal: 50, paddingTop: 80, paddingBottom: 80 }}
+            >
+              {/* Başlık */}
+              <Text style={styles.shareTitle}>{selectedHadis?.title}</Text>
+              
+              <View style={styles.shareDivider} />
+              
+              {/* İçerik */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareLabel}>ARAPÇA</Text>
+                <Text style={styles.shareArabic}>{selectedHadis?.arabic}</Text>
+                
+                <View style={styles.shareDivider} />
+                
+                <Text style={styles.shareLabel}>TÜRKÇE ANLAMI</Text>
+                <Text style={styles.shareTurkish}>{selectedHadis?.turkish}</Text>
+                
+                <View style={styles.shareDivider} />
+                
+                <Text style={styles.shareSource}>📖 {selectedHadis?.source}</Text>
+              </View>
+              
+              {/* Footer */}
+              <Text style={styles.shareFooter}>🌙 Ramazan Uygulaması</Text>
+            </LinearGradient>
+          </ViewShot>
+        </View>
       </Modal>
     </View>
   );
@@ -566,7 +601,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backgroundImageStyle: {
-    opacity: 0.4,
+    opacity: 0.6,
   },
   loadingContainer: { flex: 1, 
     justifyContent: 'center', 
@@ -605,7 +640,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15, 
     marginTop: 15, 
     paddingHorizontal: 15, 
-    paddingVertical: 12, 
+    paddingVertical: 5, 
     borderRadius: 12, 
     borderWidth: 1, 
     gap: 10 
@@ -835,6 +870,55 @@ const styles = StyleSheet.create({
     color: '#fff', 
     fontSize: 13,
     fontWeight: '600',
+  },
+  // Paylaşım Görseli Stilleri (1080x1350 Instagram Format)
+  shareTitle: {
+    fontSize: 70,
+    fontWeight: '700',
+    color: '#2d5016',
+    textAlign: 'center',
+    marginBottom: 35,
+  },
+  shareDivider: {
+    height: 5,
+    backgroundColor: '#81c784',
+    marginVertical: 35,
+    borderRadius: 2,
+  },
+  shareLabel: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#558b2f',
+    letterSpacing: 4,
+    marginBottom: 20,
+  },
+  shareArabic: {
+    fontSize: 48,
+    fontWeight: '600',
+    color: '#1b5e20',
+    textAlign: 'right',
+    lineHeight: 75,
+    marginBottom: 10,
+  },
+  shareTurkish: {
+    fontSize: 34,
+    color: '#33691e',
+    lineHeight: 52,
+    marginBottom: 10,
+  },
+  shareSource: {
+    fontSize: 30,
+    fontWeight: '600',
+    color: '#558b2f',
+    textAlign: 'center',
+    marginTop: 30,
+  },
+  shareFooter: {
+    fontSize: 30,
+    fontWeight: '600',
+    color: '#689f38',
+    textAlign: 'center',
+    marginTop: 35,
   },
 });
 
