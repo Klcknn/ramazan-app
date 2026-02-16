@@ -455,70 +455,7 @@ const DuaScreen = ({ navigation }) => {
         onRequestClose={() => setShowDuaModal(false)}
       >
         <View style={styles.modalOverlay}>
-          {/* ViewShot - Paylaşım için görsel (görünmez) */}
-          <View style={{ position: 'absolute', left: -9999, top: 0 }}>
-            <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.9 }}>
-              <LinearGradient
-                colors={['#00897B', '#26A69A', '#4DB6AC']}
-                style={styles.shareImageContainer}
-              >
-                {selectedDua && (
-                  <View style={styles.shareImageContent}>
-                    {/* Header */}
-                    <View style={styles.shareHeader}>
-                      <Text style={styles.shareAppName}>🕌 İslami Hayat</Text>
-                    </View>
-
-                    {/* Başlık */}
-                    <View style={styles.shareTitleBox}>
-                      <Text style={styles.shareTitle}>{selectedDua.title}</Text>
-                    </View>
-
-                    {/* Arapça */}
-                    <View style={styles.shareSection}>
-                      <View style={styles.shareSectionHeader}>
-                        <View style={styles.shareLine} />
-                        <Text style={styles.shareSectionTitle}>ARAPÇA</Text>
-                        <View style={styles.shareLine} />
-                      </View>
-                      <Text style={styles.shareArabic}>{selectedDua.arabic}</Text>
-                    </View>
-
-                    {/* Okunuş */}
-                    <View style={styles.shareSection}>
-                      <View style={styles.shareSectionHeader}>
-                        <View style={styles.shareLine} />
-                        <Text style={styles.shareSectionTitle}>OKUNUŞU</Text>
-                        <View style={styles.shareLine} />
-                      </View>
-                      <Text style={styles.sharePronunciation}>{selectedDua.pronunciation}</Text>
-                    </View>
-
-                    {/* Türkçe */}
-                    <View style={styles.shareSection}>
-                      <View style={styles.shareSectionHeader}>
-                        <View style={styles.shareLine} />
-                        <Text style={styles.shareSectionTitle}>TÜRKÇE MEALİ</Text>
-                        <View style={styles.shareLine} />
-                      </View>
-                      <Text style={styles.shareTurkish}>{selectedDua.turkish}</Text>
-                    </View>
-
-                    {/* Footer */}
-                    <View style={styles.shareFooter}>
-                      <Text style={styles.shareFooterText}>📱 İslami Hayat Uygulaması</Text>
-                    </View>
-                  </View>
-                )}
-              </LinearGradient>
-            </ViewShot>
-          </View>
-
-          <ImageBackground
-            source={require('../assets/images/islamic-pattern_2.jpg')}
-            style={[styles.modalContent, { backgroundColor: theme.cardBg }]}
-            imageStyle={{ opacity: 0.12, resizeMode: "cover" }}
-          >
+          <View style={[styles.modalContent, { backgroundColor: theme.cardBg }]}>
             <View style={styles.modalContentOverlay}>
               {selectedDua && (
                 <>
@@ -607,7 +544,7 @@ const DuaScreen = ({ navigation }) => {
                       color="#fff"
                     />
                     <Text style={styles.actionButtonText}>
-                      {isSpeaking ? 'Durdur' : 'Sesli Oku'}
+                      {isSpeaking ? 'Dur' : 'Sesli'}
                     </Text>
                   </TouchableOpacity>
 
@@ -631,13 +568,49 @@ const DuaScreen = ({ navigation }) => {
                       size={24}
                       color="#fff"
                     />
-                    <Text style={styles.actionButtonText}>Favori Ekle</Text>
+                    <Text style={styles.actionButtonText}>Favori</Text>
                   </TouchableOpacity>
                 </View>
               </>
             )}
           </View>
-          </ImageBackground>
+          </View>
+          
+          {/* Gizli ViewShot - HadisScreen Formatı (1080x1350 Instagram) */}
+          <View style={{ position: 'absolute', left: -9999 }}>
+            <ViewShot ref={viewShotRef} options={{ format: 'jpg', quality: 0.95 }}>
+              <LinearGradient
+                colors={['#d4e8d4', '#e8f4e8', '#f0f4e8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{ width: 1080, height: 1350, paddingHorizontal: 50, paddingTop: 80, paddingBottom: 80 }}
+              >
+                {/* Başlık */}
+                <Text style={styles.shareTitle}>{selectedDua?.title}</Text>
+                
+                <View style={styles.shareDivider} />
+                
+                {/* İçerik */}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.shareLabel}>ARAPÇA</Text>
+                  <Text style={styles.shareArabic}>{selectedDua?.arabic}</Text>
+                  
+                  <View style={styles.shareDivider} />
+                  
+                  <Text style={styles.shareLabel}>OKUNUŞU</Text>
+                  <Text style={styles.sharePronunciation}>{selectedDua?.pronunciation}</Text>
+                  
+                  <View style={styles.shareDivider} />
+                  
+                  <Text style={styles.shareLabel}>TÜRKÇE ANLAMI</Text>
+                  <Text style={styles.shareTurkish}>{selectedDua?.turkish}</Text>
+                </View>
+                
+                {/* Footer */}
+                <Text style={styles.shareFooter}>🌙 Ramazan Uygulaması</Text>
+              </LinearGradient>
+            </ViewShot>
+          </View>
         </View>
       </Modal>
     </View>
@@ -819,25 +792,29 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
   },
   modalContent: {
     width: '100%',
-    maxWidth: 450,       // Tablet friendly
-    borderRadius: 25,    // Yuvarlak köşeler
-
+    height: '65%',
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  modalContentOverlay: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 15,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
   },
   modalTitle: {
     fontSize: 22,
     fontWeight: '700',
-    textAlign: 'center',
     flex: 1,
     marginRight: 10,
   },
@@ -846,10 +823,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 15,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   fontSizeLabel: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '600',
   },
   fontSizeButtons: {
@@ -865,14 +845,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalScroll: {
+    flex: 1,
     paddingHorizontal: 20,
-    maxHeight: 400,
+    paddingVertical: 15,
   },
   duaSection: {
     marginBottom: 20,
   },
   sectionLabel: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '700',
     marginBottom: 10,
     letterSpacing: 1,
@@ -880,7 +861,7 @@ const styles = StyleSheet.create({
   duaArabicFull: {
     fontWeight: '600',
     textAlign: 'right',
-    lineHeight: 40,
+    lineHeight: 36,
   },
   duaPronunciation: {
     fontStyle: 'italic',
@@ -893,118 +874,78 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   actionButtons: {
-    flexDirection: 'row',      // Yan yana
-    gap: 10,                    // Aralarında boşluk
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: 'rgba(0,0,0,0.02)',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
   },
   actionButton: {
-    flex: 1,                   // Eşit genişlik
-    flexDirection: 'row',   // İkon üstte, text altta
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  actionButtonText: {
-    fontSize: 16,        // Kompakt
-    fontWeight: '700',
-    textAlignVertical: 'center',
-    color: '#fff',
-    marginLeft: 6,      // İkon ile text arasında boşluk
-  },
-  // Paylaşım Görseli Stilleri
-  shareImageContainer: {
-    width: 600,
-    paddingVertical: 40,
-    paddingHorizontal: 30,
-  },
-  shareImageContent: {
     flex: 1,
-  },
-  shareHeader: {
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  shareAppName: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    letterSpacing: 2,
-  },
-  shareTitleBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 25,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  shareTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    lineHeight: 32,
-  },
-  shareSection: {
-    marginBottom: 20,
-  },
-  shareSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
   },
-  shareLine: {
-    flex: 1,
-    height: 1.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  shareSectionTitle: {
+  actionButtonText: {
+    color: '#fff',
     fontSize: 13,
+    fontWeight: '600',
+  },
+  // Paylaşım Görseli Stilleri
+  // Paylaşım Görseli Stilleri (HadisScreen Formatı - 1080x1350)
+  shareTitle: {
+    fontSize: 70,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginHorizontal: 12,
-    letterSpacing: 1.5,
+    color: '#2d5016',
+    textAlign: 'center',
+    marginBottom: 35,
+  },
+  shareDivider: {
+    height: 5,
+    backgroundColor: '#81c784',
+    marginVertical: 35,
+    borderRadius: 2,
+  },
+  shareLabel: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#558b2f',
+    letterSpacing: 4,
+    marginBottom: 20,
   },
   shareArabic: {
-    fontSize: 22,
+    fontSize: 48,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#1b5e20',
     textAlign: 'right',
-    lineHeight: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 18,
-    borderRadius: 12,
+    lineHeight: 75,
+    marginBottom: 10,
   },
   sharePronunciation: {
-    fontSize: 17,
-    color: '#FFFFFF',
+    fontSize: 32,
+    color: '#33691e',
     fontStyle: 'italic',
-    lineHeight: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 18,
-    borderRadius: 12,
+    lineHeight: 50,
+    marginBottom: 10,
   },
   shareTurkish: {
-    fontSize: 17,
-    color: '#FFFFFF',
-    lineHeight: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    padding: 18,
-    borderRadius: 12,
+    fontSize: 34,
+    color: '#33691e',
+    lineHeight: 52,
+    marginBottom: 10,
   },
   shareFooter: {
-    marginTop: 30,
-    paddingTop: 20,
-    borderTopWidth: 2,
-    borderTopColor: 'rgba(255, 255, 255, 0.4)',
-    alignItems: 'center',
-  },
-  shareFooterText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    letterSpacing: 1,
+    fontSize: 30,
+    fontWeight: '600',
+    color: '#689f38',
+    textAlign: 'center',
+    marginTop: 35,
   },
 });
 
