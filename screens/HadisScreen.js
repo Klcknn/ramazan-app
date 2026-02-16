@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   backgroundImageStyle: {
-    opacity: 0.6,
+    opacity: 0.8,
   },
   loadingContainer: { flex: 1, 
     justifyContent: 'center', 
@@ -660,6 +660,7 @@ const styles = StyleSheet.create({
     alignItems: 'center' 
   },
   categoryButton: { 
+    backgroundColor: '#fff',
     marginTop: 1, 
     marginBottom: 1, 
     flexDirection: 'row', 
@@ -671,7 +672,7 @@ const styles = StyleSheet.create({
     borderRadius: 20, 
     borderWidth: 1, 
     gap: 6, 
-    minWidth: 80 
+    minWidth: 80, 
   },
   categoryButtonActive: { 
     backgroundColor: '#14b8a6', 
