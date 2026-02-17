@@ -1,8 +1,10 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  ImageBackground,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -14,15 +16,25 @@ import {
   View,
 } from 'react-native';
 
-const RamadanCalendarScreen = () => {
+const RamadanCalendarScreen = ({ navigation }) => {
+  const formatDateKey = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const currentYear = new Date().getFullYear();
+  const availableYears = Array.from({ length: 5 }, (_, index) => currentYear + index);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCity, setSelectedCity] = useState({ name: 'Kars', id: 9597 });
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [ramadanDays, setRamadanDays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
+  const [todayKey, setTodayKey] = useState(formatDateKey(new Date()));
 
-  
-  // Türkiye'deki 81 ilin listesi (Diyanet API güncel il kodları ile)
   const cities = [
     { name: 'Adana', id: 9146 },
     { name: 'Adıyaman', id: 9158 },
@@ -67,14 +79,14 @@ const RamadanCalendarScreen = () => {
     { name: 'İzmir', id: 9560 },
     { name: 'Kahramanmaraş', id: 9153 },
     { name: 'Karabük', id: 9702 },
-    { name: 'Karaman', id: 9622 }, 
+    { name: 'Karaman', id: 9622 },
     { name: 'Kars', id: 9597 },
     { name: 'Kastamonu', id: 9609 },
     { name: 'Kayseri', id: 9632 },
     { name: 'Kilis', id: 20069 },
     { name: 'Kırklareli', id: 9639 },
     { name: 'Kırşehir', id: 9642 },
-    { name: 'Kocaeli', id: 9636 }, 
+    { name: 'Kocaeli', id: 9636 },
     { name: 'Konya', id: 9654 },
     { name: 'Kütahya', id: 9680 },
     { name: 'Malatya', id: 9676 },
@@ -106,205 +118,251 @@ const RamadanCalendarScreen = () => {
     { name: 'Zonguldak', id: 9854 },
   ];
 
+  const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+  const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
   const filteredCities = cities.filter((city) =>
     city.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Ramazan verilerini çekme
-  const fetchRamadanData = async (cityId) => {
+  const getGregorianDate = (item) => {
+    const gDay = Number(item?.date?.gregorian?.day);
+    const gMonth = Number(item?.date?.gregorian?.month?.number) - 1;
+    const gYear = Number(item?.date?.gregorian?.year);
+    return new Date(gYear, gMonth, gDay);
+  };
+
+  const fetchRamadanData = async (cityId, year) => {
     setLoading(true);
+    const targetYear = year ?? selectedYear;
+
     try {
-      // 1. cityId'den şehir ismini bulalım
-      const cityObj = cities.find(c => c.id === cityId);
+      const cityObj = cities.find((c) => c.id === cityId);
       if (!cityObj) return;
-  
+
       const cityName = cityObj.name;
-      const year = 2026;
-      const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-      const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-  
-      // 2. Şubat ve Mart aylarını paralel olarak çekelim (Hız için)
-      // method=13 -> Türkiye Diyanet İşleri Başkanlığı hesaplama yöntemidir.
-      const [febRes, marRes] = await Promise.all([
-        fetch(`https://api.aladhan.com/v1/calendarByCity/${year}/2?city=${cityName}&country=Turkey&method=13`),
-        fetch(`https://api.aladhan.com/v1/calendarByCity/${year}/3?city=${cityName}&country=Turkey&method=13`)
-      ]);
-  
-      const febData = await febRes.json();
-      const marData = await marRes.json();
-  
-      let fullRamadanData = [];
-  
-      // 3. Şubat Ayını İşle (18 Şubat'tan itibaren)
-      if (febData.data) {
-        febData.data.forEach((item) => {
-          const day = parseInt(item.date.gregorian.day);
-          if (day >= 18) { // Ramazan başlangıcı 18 Şubat
-            const dateObj = new Date(year, 1, day);
-            fullRamadanData.push({
-              day: String(fullRamadanData.length + 1).padStart(2, '0'),
-              date: `${day} ${monthNames[1]}`,
-              dayName: dayNames[dateObj.getDay()],
-              sahur: item.timings.Fajr.split(' ')[0],
-              iftar: item.timings.Maghrib.split(' ')[0],
-            });
-          }
-        });
+
+      const monthRequests = Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        return fetch(
+          `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${cityName}&country=Turkey&method=13`
+        ).then((res) => res.json());
+      });
+
+      const monthResults = await Promise.all(monthRequests);
+      const allDays = monthResults.flatMap((result) => (Array.isArray(result?.data) ? result.data : []));
+
+      const ramadanEntries = allDays
+        .filter((item) => Number(item?.date?.hijri?.month?.number) === 9)
+        .sort((a, b) => getGregorianDate(a) - getGregorianDate(b));
+
+      if (ramadanEntries.length === 0) {
+        throw new Error('Seçilen yıl için Ramazan verisi bulunamadı.');
       }
-  
-      // 4. Mart Ayını İşle (Ramazan'ın geri kalanı)
-      if (marData.data) {
-        marData.data.forEach((item) => {
-          const day = parseInt(item.date.gregorian.day);
-          // Ramazan 30 gün sürdüğü için diziyi 30'a tamamlayana kadar ekle
-          if (fullRamadanData.length < 30) {
-            const dateObj = new Date(year, 2, day);
-            fullRamadanData.push({
-              day: String(fullRamadanData.length + 1).padStart(2, '0'),
-              date: `${day} ${monthNames[2]}`,
-              dayName: dayNames[dateObj.getDay()],
-              sahur: item.timings.Fajr.split(' ')[0],
-              iftar: item.timings.Maghrib.split(' ')[0],
-            });
-          }
-        });
+
+      const groupedByHijriYear = ramadanEntries.reduce((acc, item) => {
+        const hijriYear = String(item?.date?.hijri?.year || 'unknown');
+        if (!acc[hijriYear]) acc[hijriYear] = [];
+        acc[hijriYear].push(item);
+        return acc;
+      }, {});
+
+      const selectedGroup = Object.values(groupedByHijriYear)
+        .sort((a, b) => getGregorianDate(a[0]) - getGregorianDate(b[0]))
+        .sort((a, b) => b.length - a.length)[0] || [];
+
+      // 2026 için başlangıcı 19 Şubat'tan başlat.
+      const forcedStartDate = targetYear === 2026 ? new Date(2026, 1, 19) : null;
+      const displayGroup = forcedStartDate
+        ? selectedGroup.filter((item) => getGregorianDate(item) >= forcedStartDate)
+        : selectedGroup;
+
+      if (displayGroup.length === 0) {
+        throw new Error('Ramazan başlangıç verisi oluşturulamadı.');
       }
-  
+
+      const fullRamadanData = displayGroup.map((item, index) => {
+        const gDate = getGregorianDate(item);
+        const gDay = gDate.getDate();
+        const gMonth = gDate.getMonth();
+
+        return {
+          day: String(index + 1).padStart(2, '0'),
+          date: `${gDay} ${monthNames[gMonth]}`,
+          dayName: dayNames[gDate.getDay()],
+          fullDate: formatDateKey(gDate),
+          sahur: item?.timings?.Fajr?.split(' ')[0] || '--:--',
+          iftar: item?.timings?.Maghrib?.split(' ')[0] || '--:--',
+        };
+      });
+
       setRamadanDays(fullRamadanData);
-      console.log("2026 Ramazan Takvimi Başarıyla Oluşturuldu.");
-  
+      console.log(`${targetYear} ${cityName} imsakiyesi başarıyla yüklendi.`);
     } catch (error) {
-      console.error("Veri çekme hatası:", error);
-      setRamadanDays(generateSampleData());
+      console.error('Veri çekme hatası:', error);
+      setRamadanDays(generateSampleData(targetYear));
     } finally {
       setLoading(false);
     }
   };
 
-  // Örnek veri oluşturma fonksiyonu (API çalışmazsa)
-  const generateSampleData = () => {
-    const ramadanStart = new Date(2026, 1, 18);
+  const generateSampleData = (year = selectedYear) => {
+    const ramadanStart = new Date(year, 1, 19);
     const data = [];
-    const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-    const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran'];
 
     for (let i = 0; i < 30; i++) {
       const currentDate = new Date(ramadanStart);
       currentDate.setDate(ramadanStart.getDate() + i);
 
       const day = String(currentDate.getDate()).padStart(2, '0');
-      
-      // Sahur ve iftar vakitlerini hesapla (örnek)
-      const sahurHour = 5 - Math.floor(i / 10);
-      const sahurMin = 37 - i;
+      const sahurHour = Math.max(2, 5 - Math.floor(i / 10));
+      const sahurMin = Math.max(0, 37 - i);
       const iftarHour = 18 + Math.floor(i / 15);
-      const iftarMin = 42 + Math.floor(i / 3);
+      const iftarMin = Math.min(59, 42 + Math.floor(i / 3));
 
       data.push({
         day: String(i + 1).padStart(2, '0'),
         date: `${day} ${monthNames[currentDate.getMonth()]}`,
         dayName: dayNames[currentDate.getDay()],
-        sahur: `0${sahurHour}:${String(sahurMin).padStart(2, '0')}`,
-        iftar: `${iftarHour}:${String(iftarMin).padStart(2, '0')}`,
+        fullDate: formatDateKey(currentDate),
+        sahur: `${String(sahurHour).padStart(2, '0')}:${String(sahurMin).padStart(2, '0')}`,
+        iftar: `${String(iftarHour).padStart(2, '0')}:${String(iftarMin).padStart(2, '0')}`,
       });
     }
 
     return data;
   };
+
   useEffect(() => {
-    fetchRamadanData(selectedCity.id);
+    fetchRamadanData(selectedCity.id, selectedYear);
+  }, [selectedCity.id, selectedYear]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTodayKey(formatDateKey(new Date()));
+    }, 60000);
+
+    return () => clearInterval(timer);
   }, []);
 
   const handleCitySelect = (city) => {
     setSelectedCity(city);
     setSearchQuery('');
     setShowCityModal(false);
-    fetchRamadanData(city.id);
   };
 
-  const renderDay = ({ item }) => (
-    <View style={styles.dayCard}>
+  const renderDay = ({ item }) => {
+    const isActiveDay = item.fullDate === todayKey;
+
+    return (
+    <View style={[styles.dayCard, isActiveDay && styles.activeDayCard]}>
       <View style={styles.cardContent}>
-        <Text style={styles.dayNumber}>{item.day}</Text>
-        
+        <Text style={[styles.dayNumber, isActiveDay && styles.activeDayNumber]}>{item.day}</Text>
+
         <View style={styles.dateInfo}>
-          <Text style={styles.dateText}>{item.date}</Text>
-          <Text style={styles.dayNameText}>{item.dayName}</Text>
+          <Text style={[styles.dateText, isActiveDay && styles.activeDateText]}>{item.date}</Text>
+          <Text style={[styles.dayNameText, isActiveDay && styles.activeDayNameText]}>{item.dayName}</Text>
         </View>
 
-        <Text style={styles.sahurTime}>{item.sahur}</Text>
-        <Text style={styles.iftarTime}>{item.iftar}</Text>
+        <Text style={[styles.sahurTime, isActiveDay && styles.activeSahurTime]}>{item.sahur}</Text>
+        <Text style={[styles.iftarTime, isActiveDay && styles.activeIftarTime]}>{item.iftar}</Text>
       </View>
     </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#14b8a6" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        
-      
-        {/* Geri butonu ve arama */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.searchBox}
-            onPress={() => setShowCityModal(true)}
+      <ImageBackground
+        source={require('../assets/images/imsakiye_background_image.jpg')}
+        style={styles.screenBackground}
+        resizeMode="cover"
+      >
+        <View style={styles.header}>
+          <LinearGradient
+            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.headerTop}
           >
-            <Ionicons name="search" size={20} color="#666" />
-            <Text style={styles.searchText}>{selectedCity.name}</Text>
-          </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation?.goBack()}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>İmsakiye</Text>
+            <View style={{ width: 24 }} />
+          </LinearGradient>
+
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              style={styles.searchBox}
+              onPress={() => setShowCityModal(true)}
+            >
+              <Ionicons name="search" size={22} color="#26A69A" />
+              <Text style={styles.searchText}>{selectedCity.name}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.yearSelector}>
+            {availableYears.map((year) => {
+              const isActive = selectedYear === year;
+              return (
+                <TouchableOpacity
+                  key={year}
+                  style={[styles.yearButton, isActive && styles.yearButtonActive]}
+                  onPress={() => setSelectedYear(year)}
+                >
+                  <Text style={[styles.yearButtonText, isActive && styles.yearButtonTextActive]}>
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={styles.tabBar}>
+            <View style={styles.tabItem}>
+              <MaterialCommunityIcons name="moon-waning-crescent" size={27} color="#26A69A" />
+              <Text style={styles.tabLabel}>Ramazan Günü</Text>
+            </View>
+
+            <View style={styles.tabItem}>
+              <MaterialCommunityIcons name="calendar-blank" size={27} color="#26A69A" />
+              <Text style={styles.tabLabel}>Tarih</Text>
+            </View>
+
+            <View style={styles.tabItem}>
+              <Ionicons name="sunny" size={27} color="#26A69A" />
+              <Text style={styles.tabLabel}>Sahur Vakti</Text>
+            </View>
+
+            <View style={styles.tabItem}>
+              <MaterialCommunityIcons name="weather-night" size={27} color="#26A69A" />
+              <Text style={styles.tabLabel}>İftar Vakti</Text>
+            </View>
+          </View>
         </View>
-
-        {/* Başlık */}
-        <Text style={styles.title}>Ramazan Ayı Takvimi</Text>
-
-        {/* Tab İkonları */}
-        <View style={styles.tabBar}>
-          <View style={styles.tabItem}>
-            <MaterialCommunityIcons name="moon-waning-crescent" size={25} color="#fff" />
-            <Text style={styles.tabLabel}>Ramazan Gün</Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#14b8a6" />
+            <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
           </View>
+        ) : (
+          <FlatList
+            data={ramadanDays}
+            renderItem={renderDay}
+            keyExtractor={(item) => item.day}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+      </ImageBackground>
 
-          <View style={styles.tabItem}>
-            <MaterialCommunityIcons name="calendar-blank" size={25} color="#fff" />
-            <Text style={styles.tabLabel}>Tarih</Text>
-          </View>
-
-          <View style={styles.tabItem}>
-            <Ionicons name="sunny" size={25} color="#fff" />
-            <Text style={styles.tabLabel}>Sahur Vakti</Text>
-          </View>
-
-          <View style={styles.tabItem}>
-            <MaterialCommunityIcons name="weather-night" size={25} color="#fff" />
-            <Text style={styles.tabLabel}>İftar Vakti</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Liste */}
-      {loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#14b8a6" />
-          <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={ramadanDays}
-          renderItem={renderDay}
-          keyExtractor={(item) => item.day}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* Şehir Seçim Modal */}
       <Modal
         visible={showCityModal}
-        animationType="slide"
-        transparent={true}
+        animationType="fade"
+        transparent
         onRequestClose={() => setShowCityModal(false)}
       >
         <View style={styles.modalOverlay}>
@@ -357,75 +415,113 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#14b8a6',
   },
+  screenBackground: {
+    flex: 1,
+  },
   header: {
-    backgroundColor: '#14b8a6',
+    backgroundColor: 'transparent',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-    paddingBottom: 5,
-    paddingHorizontal: 5,
+    paddingBottom: 10,
+    overflow: 'hidden',
   },
-  statusBarArea: {
+  headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 5,
-    paddingBottom: 5,
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    overflow: 'hidden',
   },
-  statusTime: {
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
     color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  statusIcons: {
-    flexDirection: 'row',
-    gap: 8,
+    flex: 1,
+    textAlign: 'center',
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    margin: 5,
-    gap: 15,
+    paddingHorizontal: 10,
   },
-
   searchBox: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
     borderRadius: 12,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    marginTop: 70,
+    marginTop: 8,
     gap: 10,
   },
-  title: {
-    color: '#fff',
-    fontSize: 25,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginVertical: 15,
-  },
   searchText: {
-    fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    fontSize: 18,
+    color: '#26A69A',
+    fontWeight: '700',
+  },
+  yearSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 8,
+  },
+  yearButton: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
+  },
+  yearButtonActive: {
+    backgroundColor: '#26A69A',
+    borderColor: '#26A69A',
+  },
+  yearButtonText: {
+    color: '#26A69A',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  yearButtonTextActive: {
+    color: '#fff',
   },
   tabBar: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingTop: 10,
+    paddingTop: 8,
+    marginHorizontal: 10,
+    marginTop: 6,
+    paddingVertical: 10,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   tabItem: {
     alignItems: 'center',
+    flex: 1,
     gap: 5,
   },
   tabLabel: {
-    color: '#fff',
+    color: '#26A69A',
     fontSize: 10,
     fontWeight: '500',
   },
   listContent: {
-    padding: 10,
+    paddingHorizontal: 10,
+    paddingTop: 1,
     paddingBottom: 30,
   },
   dayCard: {
@@ -437,6 +533,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  activeDayCard: {
+    backgroundColor: '#e8f8f6',
+    borderWidth: 2,
+    borderColor: '#26A69A',
+    shadowColor: '#26A69A',
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
   },
   cardContent: {
     flexDirection: 'row',
@@ -478,6 +583,23 @@ const styles = StyleSheet.create({
     color: '#14b8a6',
     marginRight: 20,
   },
+  activeDayNumber: {
+    color: '#0f766e',
+  },
+  activeDateText: {
+    color: '#0f766e',
+  },
+  activeDayNameText: {
+    color: '#0f766e',
+  },
+  activeSahurTime: {
+    color: '#0f766e',
+    fontWeight: '700',
+  },
+  activeIftarTime: {
+    color: '#0f766e',
+    fontWeight: '700',
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -491,12 +613,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
   },
   modalContent: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    marginTop: 50,
     maxHeight: '75%',
     paddingTop: 10,
   },
