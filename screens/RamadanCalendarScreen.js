@@ -1,6 +1,6 @@
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,15 @@ import {
 } from 'react-native';
 
 const RamadanCalendarScreen = ({ navigation }) => {
+  // Aladhan-Diyanet tarih farkı görülen yıllar için gösterim düzeltmesi (gün)
+  const YEAR_DISPLAY_SHIFT_DAYS = {
+    2026: 1,
+    2027: 1,
+    2028: 1,
+    2029: 1,
+    2030: 1,
+  };
+
   const formatDateKey = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -28,12 +37,17 @@ const RamadanCalendarScreen = ({ navigation }) => {
   const availableYears = Array.from({ length: 5 }, (_, index) => currentYear + index);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCity, setSelectedCity] = useState({ name: 'Kars', id: 9597 });
+  const [selectedProvince, setSelectedProvince] = useState({ name: 'Kars', id: 9597 });
+  const [selectedDistrict, setSelectedDistrict] = useState({ name: 'Kars', id: 9597 });
+  const [districts, setDistricts] = useState([]);
+  const [modalStep, setModalStep] = useState('province');
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [ramadanDays, setRamadanDays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
   const [todayKey, setTodayKey] = useState(formatDateKey(new Date()));
+  const listRef = useRef(null);
 
   const cities = [
     { name: 'Adana', id: 9146 },
@@ -121,8 +135,29 @@ const RamadanCalendarScreen = ({ navigation }) => {
   const dayNames = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
   const monthNames = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
 
+  const normalizeText = (value) =>
+    (value || '')
+      .toLocaleLowerCase('tr-TR')
+      .replace(/ı/g, 'i')
+      .replace(/ğ/g, 'g')
+      .replace(/ü/g, 'u')
+      .replace(/ş/g, 's')
+      .replace(/ö/g, 'o')
+      .replace(/ç/g, 'c');
+
+  const formatDistrictName = (value) => {
+    const lower = (value || '').toLocaleLowerCase('tr-TR').trim();
+    return lower.replace(
+      /(^|[\s\-'/().])([a-zçğıöşü])/giu,
+      (match, separator, letter) => `${separator}${letter.toLocaleUpperCase('tr-TR')}`
+    );
+  };
+
   const filteredCities = cities.filter((city) =>
-    city.name.toLowerCase().includes(searchQuery.toLowerCase())
+    normalizeText(city.name).includes(normalizeText(searchQuery))
+  );
+  const filteredDistricts = districts.filter((district) =>
+    normalizeText(district.name).includes(normalizeText(searchQuery))
   );
 
   const getGregorianDate = (item) => {
@@ -132,21 +167,31 @@ const RamadanCalendarScreen = ({ navigation }) => {
     return new Date(gYear, gMonth, gDay);
   };
 
-  const fetchRamadanData = async (cityId, year) => {
+  const fetchRamadanData = async (provinceName, districtName, year) => {
     setLoading(true);
     const targetYear = year ?? selectedYear;
 
     try {
-      const cityObj = cities.find((c) => c.id === cityId);
-      if (!cityObj) return;
-
-      const cityName = cityObj.name;
+      const activeProvince = provinceName || selectedProvince.name;
+      const activeDistrict = districtName || selectedDistrict?.name || activeProvince;
 
       const monthRequests = Array.from({ length: 12 }, (_, index) => {
         const month = index + 1;
+        const districtQuery = encodeURIComponent(activeDistrict);
+        const provinceQuery = encodeURIComponent(activeProvince);
         return fetch(
-          `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${cityName}&country=Turkey&method=13`
-        ).then((res) => res.json());
+          `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${districtQuery}&state=${provinceQuery}&country=Turkey&method=13`
+        )
+          .then((res) => res.json())
+          .then((json) => {
+            if (Array.isArray(json?.data) && json.data.length > 0) {
+              return json;
+            }
+            const provinceOnlyQuery = encodeURIComponent(activeProvince);
+            return fetch(
+              `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${provinceOnlyQuery}&country=Turkey&method=13`
+            ).then((res) => res.json());
+          });
       });
 
       const monthResults = await Promise.all(monthRequests);
@@ -167,36 +212,131 @@ const RamadanCalendarScreen = ({ navigation }) => {
         return acc;
       }, {});
 
-      const selectedGroup = Object.values(groupedByHijriYear)
-        .sort((a, b) => getGregorianDate(a[0]) - getGregorianDate(b[0]))
-        .sort((a, b) => b.length - a.length)[0] || [];
+      const groups = Object.values(groupedByHijriYear)
+        .map((group) => group.sort((a, b) => getGregorianDate(a) - getGregorianDate(b)))
+        .sort((a, b) => getGregorianDate(a[0]) - getGregorianDate(b[0]));
+
+      // Öncelik: Seçilen miladi yılda başlayan (1 Ramazan) grup
+      let selectedGroup =
+        groups.find((group) =>
+          group.some((item) => {
+            const hijriDay = Number(item?.date?.hijri?.day);
+            const gYear = getGregorianDate(item).getFullYear();
+            return hijriDay === 1 && gYear === targetYear;
+          })
+        ) || [];
+
+      // Fallback: seçilen yılda herhangi bir Ramazan günü içeren ilk grup
+      if (selectedGroup.length === 0) {
+        selectedGroup =
+          groups.find((group) =>
+            group.some((item) => getGregorianDate(item).getFullYear() === targetYear)
+          ) || [];
+      }
 
       if (selectedGroup.length === 0) {
         throw new Error('Ramazan başlangıç verisi oluşturulamadı.');
       }
 
-      const fullRamadanData = selectedGroup.map((item, index) => {
+      // Listeyi kesin olarak 1 Ramazan'dan başlat.
+      const firstRamadanIndex = selectedGroup.findIndex(
+        (item) => Number(item?.date?.hijri?.day) === 1
+      );
+      const normalizedGroup =
+        firstRamadanIndex >= 0 ? selectedGroup.slice(firstRamadanIndex) : selectedGroup;
+
+      if (normalizedGroup.length === 0) {
+        throw new Error('Ramazan başlangıç verisi oluşturulamadı.');
+      }
+
+      // Ramazan süresi (29/30): Hicri gün numaralarından dinamik belirle.
+      const seenHijriDays = new Set();
+      const finalGroup = normalizedGroup.filter((item) => {
+        const hijriDay = Number(item?.date?.hijri?.day);
+        if (hijriDay < 1 || hijriDay > 30 || seenHijriDays.has(hijriDay)) {
+          return false;
+        }
+        seenHijriDays.add(hijriDay);
+        return true;
+      });
+
+      if (finalGroup.length === 0) {
+        throw new Error('Ramazan günleri listelenemedi.');
+      }
+
+      const fullRamadanData = finalGroup.map((item, index) => {
         const gDate = getGregorianDate(item);
-        const gDay = gDate.getDate();
-        const gMonth = gDate.getMonth();
+        const displayDate = new Date(gDate);
+
+        const shiftDays = YEAR_DISPLAY_SHIFT_DAYS[targetYear] || 0;
+        if (shiftDays !== 0) {
+          displayDate.setDate(displayDate.getDate() + shiftDays);
+        }
+
+        const gDay = displayDate.getDate();
+        const gMonth = displayDate.getMonth();
 
         return {
           day: String(index + 1).padStart(2, '0'),
           date: `${gDay} ${monthNames[gMonth]}`,
-          dayName: dayNames[gDate.getDay()],
-          fullDate: formatDateKey(gDate),
+          dayName: dayNames[displayDate.getDay()],
+          fullDate: formatDateKey(displayDate),
           sahur: item?.timings?.Imsak?.split(' ')[0] || '--:--',
           iftar: item?.timings?.Maghrib?.split(' ')[0] || '--:--',
         };
       });
 
       setRamadanDays(fullRamadanData);
-      console.log(`${targetYear} ${cityName} imsakiyesi başarıyla yüklendi.`);
+      console.log(`${targetYear} ${activeProvince}/${activeDistrict} imsakiyesi başarıyla yüklendi.`);
     } catch (error) {
       console.error('Veri çekme hatası:', error);
       setRamadanDays(generateSampleData(targetYear));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDistrictsByProvince = async (provinceName, autoSelect = false) => {
+    setLoadingDistricts(true);
+    try {
+      const provinceRes = await fetch('https://ezanvakti.emushaf.net/sehirler/2');
+      const provinceData = await provinceRes.json();
+      const matchedProvince = (provinceData || []).find(
+        (item) => normalizeText(item?.SehirAdi) === normalizeText(provinceName)
+      );
+
+      if (!matchedProvince?.SehirID) {
+        setDistricts([]);
+        return;
+      }
+
+      const districtRes = await fetch(`https://ezanvakti.emushaf.net/ilceler/${matchedProvince.SehirID}`);
+      const districtData = await districtRes.json();
+      const mappedDistricts = (districtData || [])
+        .map((item) => ({
+          id: Number(item.IlceID),
+          name: formatDistrictName(item.IlceAdi),
+        }))
+        .sort((a, b) => {
+          const aCenter = normalizeText(a.name).includes('merkez');
+          const bCenter = normalizeText(b.name).includes('merkez');
+          if (aCenter !== bCenter) return aCenter ? -1 : 1;
+          return a.name.localeCompare(b.name, 'tr-TR');
+        });
+
+      setDistricts(mappedDistricts);
+
+      if (autoSelect && mappedDistricts.length > 0) {
+        const centerDistrict =
+          mappedDistricts.find((item) => normalizeText(item.name).includes('merkez')) ||
+          mappedDistricts[0];
+        setSelectedDistrict(centerDistrict);
+      }
+    } catch (error) {
+      console.error('İlçe verisi çekilemedi:', error);
+      setDistricts([]);
+    } finally {
+      setLoadingDistricts(false);
     }
   };
 
@@ -228,8 +368,17 @@ const RamadanCalendarScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    fetchRamadanData(selectedCity.id, selectedYear);
-  }, [selectedCity.id, selectedYear]);
+    fetchDistrictsByProvince(selectedProvince.name, true);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedDistrict?.name) return;
+    fetchRamadanData(selectedProvince.name, selectedDistrict.name, selectedYear);
+  }, [selectedProvince.name, selectedDistrict?.name, selectedYear]);
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, [selectedYear, selectedProvince.name, selectedDistrict?.id]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -239,10 +388,20 @@ const RamadanCalendarScreen = ({ navigation }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const handleCitySelect = (city) => {
-    setSelectedCity(city);
+  const handleProvinceSelect = async (province) => {
+    setSelectedProvince(province);
+    setSelectedDistrict(null);
+    setRamadanDays([]);
+    setSearchQuery('');
+    setModalStep('district');
+    await fetchDistrictsByProvince(province.name);
+  };
+
+  const handleDistrictSelect = (district) => {
+    setSelectedDistrict(district);
     setSearchQuery('');
     setShowCityModal(false);
+    setModalStep('province');
   };
 
   const renderDay = ({ item }) => {
@@ -291,10 +450,16 @@ const RamadanCalendarScreen = ({ navigation }) => {
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.searchBox}
-              onPress={() => setShowCityModal(true)}
+              onPress={() => {
+                setModalStep('province');
+                setSearchQuery('');
+                setShowCityModal(true);
+              }}
             >
               <Ionicons name="search" size={22} color="#26A69A" />
-              <Text style={styles.searchText}>{selectedCity.name}</Text>
+              <Text style={styles.searchText}>
+                {selectedProvince.name} / {selectedDistrict?.name || 'İlçe seçin'}
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -344,11 +509,12 @@ const RamadanCalendarScreen = ({ navigation }) => {
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             data={ramadanDays}
             renderItem={renderDay}
             keyExtractor={(item) => item.day}
             contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
           />
         )}
       </ImageBackground>
@@ -362,8 +528,29 @@ const RamadanCalendarScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Şehir Seçin</Text>
-              <TouchableOpacity onPress={() => setShowCityModal(false)}>
+              <View style={styles.modalHeaderLeft}>
+                {modalStep === 'district' && (
+                  <TouchableOpacity
+                    style={styles.modalBackButton}
+                    onPress={() => {
+                      setModalStep('province');
+                      setSearchQuery('');
+                    }}
+                  >
+                    <Ionicons name="arrow-back" size={22} color="#14b8a6" />
+                  </TouchableOpacity>
+                )}
+                <Text style={styles.modalTitle}>
+                  {modalStep === 'district' ? `${selectedProvince.name} İlçeleri` : 'İl Seçin'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCityModal(false);
+                  setModalStep('province');
+                  setSearchQuery('');
+                }}
+              >
                 <Ionicons name="close-circle" size={28} color="#14b8a6" />
               </TouchableOpacity>
             </View>
@@ -372,7 +559,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
               <Ionicons name="search" size={20} color="#999" />
               <TextInput
                 style={styles.modalSearchInput}
-                placeholder="Şehir ara..."
+                placeholder={modalStep === 'district' ? 'İlçe ara...' : 'İl ara...'}
                 placeholderTextColor="#999"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -381,20 +568,51 @@ const RamadanCalendarScreen = ({ navigation }) => {
             </View>
 
             <ScrollView style={styles.cityList}>
-              {filteredCities.map((city) => (
-                <TouchableOpacity
-                  key={city.id}
-                  style={styles.cityItem}
-                  onPress={() => handleCitySelect(city)}
-                >
-                  <Text style={styles.cityName}>{city.name}</Text>
-                  {selectedCity.id === city.id && (
-                    <Ionicons name="checkmark-circle" size={24} color="#14b8a6" />
+              {modalStep === 'province' ? (
+                <>
+                  {filteredCities.map((city) => (
+                    <TouchableOpacity
+                      key={city.id}
+                      style={styles.cityItem}
+                      onPress={() => handleProvinceSelect(city)}
+                    >
+                      <Text style={styles.cityName}>{city.name}</Text>
+                      {selectedProvince.id === city.id && (
+                        <Ionicons name="checkmark-circle" size={24} color="#14b8a6" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                  {filteredCities.length === 0 && (
+                    <Text style={styles.noResultText}>İl bulunamadı</Text>
                   )}
-                </TouchableOpacity>
-              ))}
-              {filteredCities.length === 0 && (
-                <Text style={styles.noResultText}>Şehir bulunamadı</Text>
+                </>
+              ) : (
+                <>
+                  {loadingDistricts ? (
+                    <View style={styles.districtLoadingWrap}>
+                      <ActivityIndicator size="small" color="#14b8a6" />
+                      <Text style={styles.districtLoadingText}>İlçeler yükleniyor...</Text>
+                    </View>
+                  ) : (
+                    <>
+                      {filteredDistricts.map((district) => (
+                        <TouchableOpacity
+                          key={district.id}
+                          style={styles.cityItem}
+                          onPress={() => handleDistrictSelect(district)}
+                        >
+                          <Text style={styles.cityName}>{district.name}</Text>
+                          {selectedDistrict?.id === district.id && (
+                            <Ionicons name="checkmark-circle" size={24} color="#14b8a6" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                      {filteredDistricts.length === 0 && (
+                        <Text style={styles.noResultText}>İlçe bulunamadı</Text>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </ScrollView>
           </View>
@@ -626,6 +844,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginBottom: 10,
   },
+  modalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 12,
+  },
+  modalBackButton: {
+    marginRight: 10,
+    paddingVertical: 2,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -649,6 +877,18 @@ const styles = StyleSheet.create({
   },
   cityList: {
     maxHeight: 450,
+  },
+  districtLoadingWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 16,
+  },
+  districtLoadingText: {
+    color: '#14b8a6',
+    fontSize: 14,
+    fontWeight: '600',
   },
   cityItem: {
     flexDirection: 'row',

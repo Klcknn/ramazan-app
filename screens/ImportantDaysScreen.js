@@ -1,4 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
 import { scheduleImportantDayNotifications } from '../services/notificationService';
@@ -10,21 +11,6 @@ export default function ImportantDaysScreen({ navigation }) {
   const [importantDays, setImportantDays] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-
-  // Hicri takvim yaklaşık hesaplama (basitleştirilmiş)
-  // Not: Gerçek uygulamada moment-hijri gibi kütüphane kullanılmalı
-  const getIslamicDate = (gregorianDate, hijriYear, hijriMonth, hijriDay) => {
-    // Basit hesaplama - gerçek uygulama için API kullanın
-    const baseDate = new Date('2026-01-01');
-    const hijriBaseYear = 1447;
-    const yearDiff = hijriYear - hijriBaseYear;
-    const approximateDays = yearDiff * 354; // Hicri yıl ~354 gün
-    
-    const targetDate = new Date(baseDate);
-    targetDate.setDate(targetDate.getDate() + approximateDays + (hijriMonth * 29) + hijriDay);
-    
-    return targetDate;
-  };
 
   // Önemli Dini Günler Şablonu (Hicri takvime göre sabit)
   const islamicDaysTemplate = [
@@ -43,7 +29,7 @@ export default function ImportantDaysScreen({ navigation }) {
       type: 'kandil',
       icon: '✨',
       hijriMonth: 7, // Recep
-      hijriDay: 27,
+      hijriDay: 26, // Kandil gecesi (27. gece), miladi güne 26 Recep denk gelir
       description: 'Hz. Muhammed\'in (SAV) Miraç\'a yükseldiği mübarek gece.',
       color: ['#1976D2', '#42A5F5'],
       prayers: ['Kandil namazı', 'Kur\'an okuma', 'Tesbih'],
@@ -53,7 +39,7 @@ export default function ImportantDaysScreen({ navigation }) {
       type: 'kandil',
       icon: '🌟',
       hijriMonth: 8, // Şaban
-      hijriDay: 15,
+      hijriDay: 14, // Kandil gecesi (15. gece)
       description: 'Şaban ayının 15. gecesi, günahların bağışlandığı mübarek gece.',
       color: ['#7B1FA2', '#BA68C8'],
       prayers: ['Kandil namazı', 'Tesbih', 'İstiğfar', 'Dua'],
@@ -73,7 +59,7 @@ export default function ImportantDaysScreen({ navigation }) {
       type: 'kandil',
       icon: '⭐',
       hijriMonth: 9, // Ramazan
-      hijriDay: 27,
+      hijriDay: 26, // Kandil gecesi (27. gece)
       description: 'Bin aydan daha hayırlı olan Kadir Gecesi. Kur\'an-ı Kerim\'in indirildiği gece.',
       color: ['#FF6B6B', '#FFA94D'],
       prayers: ['Kandil namazı', 'Kur\'an okuma', 'Tesbih', 'Dua'],
@@ -135,7 +121,7 @@ export default function ImportantDaysScreen({ navigation }) {
       type: 'kandil',
       icon: '💫',
       hijriMonth: 3, // Rebiülevvel
-      hijriDay: 12,
+      hijriDay: 11, // Kandil gecesi (12. gece)
       description: 'Hz. Muhammed\'in (SAV) doğum günü. Mevlid-i Nebi.',
       color: ['#00897B', '#4DB6AC'],
       prayers: ['Mevlid okuma', 'Salavat-ı şerife', 'Dua'],
@@ -147,67 +133,65 @@ export default function ImportantDaysScreen({ navigation }) {
     calculateDaysForYear(selectedYear);
   }, [selectedYear]);
 
-  const calculateDaysForYear = (year) => {
-    const days = [];
-    const hijriYear = 1447 + (year - 2026); // Yaklaşık hicri yıl
-
-    // 2026 yılı için sabit tarihler (referans)
-    const referenceDates2026 = {
-      'Regaip Kandili': new Date('2026-01-16'),
-      'Miraç Kandili': new Date('2026-02-13'),
-      'Berat Kandili': new Date('2026-02-28'),
-      'Ramazan Başlangıcı': new Date('2026-03-01'),
-      'Kadir Gecesi': new Date('2026-03-27'),
-      'Ramazan Bayramı': new Date('2026-03-31'),
-      'Arefe Günü': new Date('2026-06-06'),
-      'Kurban Bayramı': new Date('2026-06-07'),
-      'Hicri Yılbaşı': new Date('2026-06-27'),
-      'Aşure Günü': new Date('2026-07-06'),
-      'Mevlid Kandili': new Date('2026-09-04'),
-    };
-
-    islamicDaysTemplate.forEach((template) => {
-      let gregorianDate;
-      
-      if (year === 2026) {
-        // 2026 için sabit tarihler
-        gregorianDate = referenceDates2026[template.name];
-      } else {
-        // Diğer yıllar için yaklaşık hesaplama (hicri takvim ~354 gün)
-        const referenceDate = referenceDates2026[template.name];
-        const yearDiff = year - 2026;
-        const approximateDays = yearDiff * 354; // Hicri yıl Miladi yıldan ~11 gün kısa
-        
-        gregorianDate = new Date(referenceDate);
-        gregorianDate.setDate(gregorianDate.getDate() + approximateDays);
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const dayDate = new Date(gregorianDate);
-      dayDate.setHours(0, 0, 0, 0);
-      
-      const diffTime = dayDate - today;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      days.push({
-        ...template,
-        gregorianDate,
-        formattedDate: gregorianDate.toLocaleDateString('tr-TR', { 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric' 
-        }),
-        daysLeft: diffDays,
-        isPast: diffDays < 0,
-        isToday: diffDays === 0,
-        isTomorrow: diffDays === 1,
+  const calculateDaysForYear = async (year) => {
+    try {
+      const monthRequests = Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        return fetch(
+          `https://api.aladhan.com/v1/calendarByCity/${year}/${month}?city=Ankara&country=Turkey&method=13`
+        ).then((res) => res.json());
       });
-    });
 
-    // Tarihe göre sırala
-    days.sort((a, b) => a.gregorianDate - b.gregorianDate);
-    setImportantDays(days);
+      const monthResults = await Promise.all(monthRequests);
+      const allDays = monthResults.flatMap((result) => (Array.isArray(result?.data) ? result.data : []));
+      const days = [];
+
+      islamicDaysTemplate.forEach((template) => {
+        const matchedDay = allDays.find(
+          (item) =>
+            Number(item?.date?.hijri?.month?.number) === template.hijriMonth &&
+            Number(item?.date?.hijri?.day) === template.hijriDay
+        );
+
+        if (!matchedDay) {
+          return;
+        }
+
+        const gDay = Number(matchedDay?.date?.gregorian?.day);
+        const gMonth = Number(matchedDay?.date?.gregorian?.month?.number) - 1;
+        const gYear = Number(matchedDay?.date?.gregorian?.year) || year;
+        const gregorianDate = new Date(gYear, gMonth, gDay);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dayDate = new Date(gregorianDate);
+        dayDate.setHours(0, 0, 0, 0);
+
+        const diffTime = dayDate - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        days.push({
+          ...template,
+          gregorianDate,
+          formattedDate: gregorianDate.toLocaleDateString('tr-TR', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+          }),
+          daysLeft: diffDays,
+          isPast: diffDays < 0,
+          isToday: diffDays === 0,
+          isTomorrow: diffDays === 1,
+        });
+      });
+
+      // Tarihe göre sırala
+      days.sort((a, b) => a.gregorianDate - b.gregorianDate);
+      setImportantDays(days);
+    } catch (error) {
+      console.error('Dini günler hesaplanamadı:', error);
+      setImportantDays([]);
+    }
   };
 
   const getDaysLeftText = (day) => {
@@ -227,27 +211,22 @@ export default function ImportantDaysScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#7B1FA2', '#9C27B0']} style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backIcon}>←</Text>
+      <LinearGradient
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>📅 Önemli Dini Günler</Text>
-          <Text style={styles.headerSubtitle}>İslami takvim • Yıllık liste</Text>
-        </View>
+        <Text style={styles.headerTitle}>Önemli Dini Günler</Text>
+        <View style={{ width: 24 }} />
       </LinearGradient>
 
       {/* Yıl Seçici */}
       <View style={styles.yearSelectorContainer}>
-        <Text style={styles.yearLabel}>Yıl Seçin:</Text>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.yearChipsContainer}
-        >
+        <View style={styles.yearSelectorRow}>
           {years.map((year) => (
             <TouchableOpacity
               key={year}
@@ -266,7 +245,7 @@ export default function ImportantDaysScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Dini Günler Listesi */}
@@ -410,75 +389,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
     paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 25,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-  },
-  headerContent: {
-    alignItems: 'center',
-  },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 15,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
+    flex: 1,
+    textAlign: 'center',
   },
   yearSelectorContainer: {
-    paddingVertical: 20,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  yearLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 12,
-  },
-  yearChipsContainer: {
+  yearSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
   },
   yearChip: {
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 9,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#d1d5db',
   },
   yearChipActive: {
-    backgroundColor: '#7B1FA2',
-    borderColor: '#7B1FA2',
+    backgroundColor: '#26A69A',
+    borderColor: '#26A69A',
   },
   yearChipText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#26A69A',
   },
   yearChipTextActive: {
-    color: '#FFFFFF',
+    color: '#fff',
   },
   daysContainer: {
     flex: 1,
