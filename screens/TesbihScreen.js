@@ -1,27 +1,127 @@
-import { View, Text, StyleSheet, TouchableOpacity, Vibration, Alert } from 'react-native';
-import { useState } from 'react';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
+import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+
+const TESBIH_STORAGE_KEY = 'tesbih_data_v1';
+const TARGET_OPTIONS = [33, 99, 500, 'infinite'];
+
+const createInitialCounts = () => {
+  const base = {};
+  TARGET_OPTIONS.forEach((value) => {
+    base[value] = 0;
+  });
+  return base;
+};
 
 export default function TesbihScreen({ navigation }) {
-  const [count, setCount] = useState(0);
   const [target, setTarget] = useState(33);
+  const [countsByTarget, setCountsByTarget] = useState(createInitialCounts);
+
+  useEffect(() => {
+    const loadTesbihData = async () => {
+      try {
+        const savedData = await AsyncStorage.getItem(TESBIH_STORAGE_KEY);
+        if (!savedData) return;
+
+        const parsed = JSON.parse(savedData);
+        const nextCounts = createInitialCounts();
+
+        if (parsed && typeof parsed.countsByTarget === 'object') {
+          if (parsed.version === 2) {
+            TARGET_OPTIONS.forEach((value) => {
+              const current = parsed.countsByTarget[value];
+              if (typeof current === 'number' && current >= 0) {
+                nextCounts[value] = current;
+              }
+            });
+          } else {
+            // Legacy migration:
+            // old 100 -> new 500, old 500 -> new Sonsuz
+            if (typeof parsed.countsByTarget[33] === 'number') {
+              nextCounts[33] = Math.max(0, parsed.countsByTarget[33]);
+            }
+            if (typeof parsed.countsByTarget[99] === 'number') {
+              nextCounts[99] = Math.max(0, parsed.countsByTarget[99]);
+            }
+            if (typeof parsed.countsByTarget[100] === 'number') {
+              nextCounts[500] = Math.max(0, parsed.countsByTarget[100]);
+            }
+            if (typeof parsed.countsByTarget[500] === 'number') {
+              nextCounts.infinite = Math.max(0, parsed.countsByTarget[500]);
+            }
+          }
+        } else if (typeof parsed?.count === 'number' && typeof parsed?.target === 'number') {
+          if (TARGET_OPTIONS.includes(parsed.target)) {
+            nextCounts[parsed.target] = Math.max(0, parsed.count);
+          } else if (parsed.target === 100) {
+            nextCounts[500] = Math.max(0, parsed.count);
+          } else if (parsed.target === 500) {
+            nextCounts.infinite = Math.max(0, parsed.count);
+          }
+        }
+
+        setCountsByTarget(nextCounts);
+
+        if (TARGET_OPTIONS.includes(parsed?.target)) {
+          setTarget(parsed.target);
+        } else if (parsed?.target === 100) {
+          setTarget(500);
+        } else if (parsed?.target === 500) {
+          setTarget('infinite');
+        }
+      } catch (error) {
+        console.log('Tesbih verisi okunamadi:', error);
+      }
+    };
+
+    loadTesbihData();
+  }, []);
+
+  useEffect(() => {
+    const saveTesbihData = async () => {
+      try {
+        await AsyncStorage.setItem(
+          TESBIH_STORAGE_KEY,
+          JSON.stringify({ version: 2, target, countsByTarget })
+        );
+      } catch (error) {
+        console.log('Tesbih verisi kaydedilemedi:', error);
+      }
+    };
+
+    saveTesbihData();
+  }, [target, countsByTarget]);
+
+  const currentCount = countsByTarget[target] || 0;
 
   const handlePress = () => {
-    const newCount = count + 1;
-    setCount(newCount);
-    
-    // Vibration feedback
+    const newCount = currentCount + 1;
+
+    setCountsByTarget((prev) => ({
+      ...prev,
+      [target]: newCount,
+    }));
+
     Vibration.vibrate(50);
-    
-    // Hedef tamamlandıysa
-    if (newCount === target) {
-      Vibration.vibrate([0, 100, 100, 100]); // Uzun titreşim
+
+    if (typeof target === 'number' && newCount === target) {
+      Vibration.vibrate([0, 100, 100, 100]);
       Alert.alert(
         '🎉 Tebrikler!',
         `${target} tane tamamlandı!`,
         [
-          { text: 'Devam Et', onPress: () => setCount(0) },
-          { text: 'Tamam' }
+          {
+            text: 'Devam Et',
+            onPress: () => {
+              setCountsByTarget((prev) => ({
+                ...prev,
+                [target]: 0,
+              }));
+            },
+          },
+          { text: 'Tamam' },
         ]
       );
     }
@@ -30,94 +130,118 @@ export default function TesbihScreen({ navigation }) {
   const handleReset = () => {
     Alert.alert(
       'Sıfırla',
-      'Sayacı sıfırlamak istediğinize emin misiniz?',
+      'Bu hedefteki sayacı sıfırlamak istediğinize emin misiniz?',
       [
         { text: 'İptal', style: 'cancel' },
-        { text: 'Sıfırla', onPress: () => setCount(0), style: 'destructive' }
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: () => {
+            setCountsByTarget((prev) => ({
+              ...prev,
+              [target]: 0,
+            }));
+          },
+        },
       ]
     );
   };
 
   const handleTargetChange = (newTarget) => {
+    if (newTarget === 'refresh') {
+      setCountsByTarget((prev) => ({
+        ...prev,
+        [target]: 0,
+      }));
+      return;
+    }
+
     setTarget(newTarget);
-    setCount(0);
   };
 
+  const isInfiniteTarget = target === 'infinite';
+  const progressPercent = isInfiniteTarget
+    ? 0
+    : Math.min(100, Math.round((currentCount / target) * 100));
+
   return (
-    <LinearGradient
-      colors={['#00897B', '#26A69A', '#4DB6AC']}
+    <ImageBackground
+      source={require('../assets/images/tesbih_background_image.jpg')}
       style={styles.container}
+      resizeMode="cover"
     >
-      <View style={styles.content}>
-        {/* Hedef Seçimi */}
-        <View style={styles.targetContainer}>
-          <Text style={styles.targetLabel}>Hedef</Text>
-          <View style={styles.targetButtons}>
-            {[33, 99, 100, 500, 1000].map((num) => (
-              <TouchableOpacity
-                key={num}
-                style={[
-                  styles.targetButton,
-                  target === num && styles.targetButtonActive
-                ]}
-                onPress={() => handleTargetChange(num)}
-              >
-                <Text style={[
-                  styles.targetButtonText,
-                  target === num && styles.targetButtonTextActive
-                ]}>
-                  {num}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Ana Sayaç */}
-        <View style={styles.counterContainer}>
-          <Text style={styles.counterText}>{count}</Text>
-          <Text style={styles.targetText}>/ {target}</Text>
-        </View>
-
-        {/* İlerleme Çubuğu */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressBackground}>
-            <View 
-              style={[
-                styles.progressBar, 
-                { width: `${(count / target) * 100}%` }
-              ]} 
-            />
-          </View>
-          <Text style={styles.progressText}>
-            %{Math.round((count / target) * 100)}
-          </Text>
-        </View>
-
-        {/* Ana Tesbih Butonu */}
-        <TouchableOpacity 
-          style={styles.mainButton}
-          onPress={handlePress}
-          activeOpacity={0.8}
+      <View style={styles.backgroundOverlay}>
+        <LinearGradient
+          colors={['#00897B', '#26A69A', '#4DB6AC']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={styles.header}
         >
-          <LinearGradient
-            colors={['#FFFFFF', '#F5F5F5']}
-            style={styles.mainButtonGradient}
+          <TouchableOpacity onPress={() => navigation?.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Tesbih</Text>
+          <View style={{ width: 24 }} />
+        </LinearGradient>
+
+        <View style={styles.content}>
+          <View style={styles.targetContainer}>
+            <Text style={styles.targetLabel}>Hedef</Text>
+            <View style={styles.targetButtons}>
+              {[...TARGET_OPTIONS, 'refresh'].map((num) => (
+                <TouchableOpacity
+                  key={num}
+                  style={[
+                    styles.targetButton,
+                    target === num && styles.targetButtonActive,
+                    num === 'refresh' && styles.refreshTargetButton,
+                  ]}
+                  onPress={() => handleTargetChange(num)}
+                >
+                  <Text
+                    style={[
+                      styles.targetButtonText,
+                      target === num && styles.targetButtonTextActive,
+                      num === 'refresh' && styles.refreshTargetButtonText,
+                    ]}
+                  >
+                    {num === 'refresh' ? 'Yenile' : num === 'infinite' ? 'Sonsuz' : num}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.counterContainer}>
+            <Text style={styles.counterText}>{currentCount}</Text>
+            <Text style={styles.targetText}>/ {isInfiniteTarget ? 'Sonsuz' : target}</Text>
+          </View>
+
+          <View style={styles.progressContainer}>
+            <View style={styles.progressBackground}>
+              <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+            </View>
+            <Text style={styles.progressText}>{isInfiniteTarget ? 'Sonsuz mod' : `%${progressPercent}`}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={styles.mainButton}
+            onPress={handlePress}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <Text style={styles.mainButtonText}>📿</Text>
-            <Text style={styles.mainButtonLabel}>Dokun</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <LinearGradient colors={['#FFFFFF', '#F5F5F5']} style={styles.mainButtonGradient}>
+              <Text style={styles.mainButtonText}>📿</Text>
+              <Text style={styles.mainButtonLabel}>Dokun</Text>
+            </LinearGradient>
+          </TouchableOpacity>
 
-        {/* Sıfırlama Butonu */}
-        <TouchableOpacity 
-          style={styles.resetButton}
-          onPress={handleReset}
-        >
-          <Text style={styles.resetButtonText}>🔄 Sıfırla</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+            <Text style={styles.resetButtonText}>🔄 Sıfırla</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -125,9 +249,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(68, 58, 58, 0.5)',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
+    textAlign: 'center',
+  },
   content: {
     flex: 1,
-    paddingTop: 60,
+    paddingTop: 20,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
@@ -136,7 +281,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   targetLabel: {
-    fontSize: 16,
+    fontSize: 22,
     color: '#FFFFFF',
     fontWeight: '600',
     marginBottom: 10,
@@ -157,7 +302,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   targetButtonActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: '#2E7D32',
     borderColor: '#FFFFFF',
   },
   targetButtonText: {
@@ -168,6 +313,13 @@ const styles = StyleSheet.create({
   targetButtonTextActive: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  refreshTargetButton: {
+    backgroundColor: '#FFFFFF',
+  },
+  refreshTargetButtonText: {
+    color: '#00897B',
+    fontWeight: '700',
   },
   counterContainer: {
     alignItems: 'center',
@@ -186,7 +338,7 @@ const styles = StyleSheet.create({
   progressContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 30,
   },
   progressBackground: {
     width: '100%',
@@ -207,16 +359,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mainButton: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
     elevation: 10,
-    marginBottom: 30,
+    marginBottom: 20,
   },
   mainButtonGradient: {
     width: '100%',
@@ -225,11 +377,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   mainButtonText: {
-    fontSize: 80,
-    marginBottom: 10,
+    fontSize: 54,
+    marginBottom: 6,
   },
   mainButtonLabel: {
-    fontSize: 20,
+    fontSize: 16,
     color: '#00897B',
     fontWeight: 'bold',
   },

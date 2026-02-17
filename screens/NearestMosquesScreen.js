@@ -1,4 +1,5 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -7,6 +8,7 @@ import {
   Animated,
   FlatList,
   Linking,
+  PanResponder,
   Platform,
   StyleSheet,
   Text,
@@ -14,20 +16,40 @@ import {
   View,
 } from 'react-native';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-// ✅ YENİ: expo-constants import
+// expo-constants import
 import Constants from 'expo-constants';
 
 const NearestMosquesScreen = ({ navigation }) => {
   const [location, setLocation] = useState(null);
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMosque, setSelectedMosque] = useState(null);
   const [showList, setShowList] = useState(false);
   const [nearestMosque, setNearestMosque] = useState(null);
+  const [selectedMosque, setSelectedMosque] = useState(null);
   const mapRef = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const cardPan = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const cardPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        cardPan.setOffset({
+          x: cardPan.x.__getValue(),
+          y: cardPan.y.__getValue(),
+        });
+        cardPan.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: cardPan.x, dy: cardPan.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: () => {
+        cardPan.flattenOffset();
+      },
+    })
+  ).current;
 
-  // ✅ API Key'i expo-constants'tan al (app.json'dan)
+  // API Key'i expo-constants'tan al (app.json'dan)
   const GOOGLE_MAPS_API_KEY = Platform.select({
     android: Constants.expoConfig?.android?.config?.googleMaps?.apiKey || 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY',
     ios: Constants.expoConfig?.ios?.config?.googleMapsApiKey || 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY',
@@ -36,11 +58,11 @@ const NearestMosquesScreen = ({ navigation }) => {
 
   // Debug: API key kontrol
   useEffect(() => {
-    console.log('🔑 Google Maps API Key:', GOOGLE_MAPS_API_KEY);
-    console.log('📱 Platform:', Platform.OS);
+    console.log('Google Maps API Key:', GOOGLE_MAPS_API_KEY);
+    console.log('Platform:', Platform.OS);
     
     if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === 'AIzaSyCQh9eXuB9RapkWfbnrTt6UoWdVgobeNzY') {
-      console.warn('⚠️ API key app.json\'dan alınamadı, varsayılan kullanılıyor');
+      console.warn('API key app.json\'dan alınamadı, varsayılan kullanılıyor');
     }
   }, []);
 
@@ -53,43 +75,21 @@ const NearestMosquesScreen = ({ navigation }) => {
     }
   };
 
-  // Pulse animasyonu
   useEffect(() => {
-    if (nearestMosque) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.3,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-      pulse.start();
-
-      setTimeout(() => {
-        pulse.stop();
-        pulseAnim.setValue(1);
-      }, 5000);
-
-      return () => pulse.stop();
+    if (selectedMosque) {
+      cardPan.setValue({ x: 0, y: 0 });
     }
-  }, [nearestMosque]);
+  }, [selectedMosque, cardPan]);
 
   // Kullanıcının konumunu al
   useEffect(() => {
     (async () => {
       try {
-        console.log('🔍 Konum izni isteniyor...');
+        console.log('Konum izni isteniyor...');
         let { status } = await Location.requestForegroundPermissionsAsync();
         
         if (status !== 'granted') {
-          console.log('❌ Konum izni reddedildi');
+          console.log('Konum izni reddedildi');
           Alert.alert(
             'İzin Gerekli', 
             'Yakındaki camileri görebilmek için konum izni gereklidir.',
@@ -102,7 +102,7 @@ const NearestMosquesScreen = ({ navigation }) => {
           return;
         }
 
-        console.log('✅ Konum izni verildi, konum alınıyor...');
+        console.log('Konum izni verildi, konum alınıyor...');
         let currentLocation = await Location.getCurrentPositionAsync({
           accuracy: Location.Accuracy.Balanced,
         });
@@ -114,11 +114,11 @@ const NearestMosquesScreen = ({ navigation }) => {
           longitudeDelta: 0.03,
         };
 
-        console.log('📍 Konum alındı:', userLocation.latitude, userLocation.longitude);
+        console.log('Konum alındı:', userLocation.latitude, userLocation.longitude);
         setLocation(userLocation);
         await findNearbyMosques(userLocation.latitude, userLocation.longitude);
       } catch (error) {
-        console.error('❌ Konum alınırken hata:', error);
+        console.error('Konum alınırken hata:', error);
         Alert.alert('Hata', 'Konum bilgisi alınamadı. GPS açık olduğundan emin olun.');
         setLoading(false);
       }
@@ -128,13 +128,13 @@ const NearestMosquesScreen = ({ navigation }) => {
   // Yakındaki camileri bul
   const findNearbyMosques = async (lat, lng) => {
     try {
-      console.log('🔍 Camiler aranıyor...');
-      console.log('📍 Konum:', lat, lng);
-      console.log('🔑 Kullanılan API Key:', GOOGLE_MAPS_API_KEY?.substring(0, 20) + '...');
+      console.log('Camiler aranıyor...');
+      console.log('Konum:', lat, lng);
+      console.log('Kullanılan API Key:', GOOGLE_MAPS_API_KEY?.substring(0, 20) + '...');
       
       const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=5000&type=mosque&language=tr&key=${GOOGLE_MAPS_API_KEY}`;
       
-      console.log('🌐 API çağrısı yapılıyor...');
+      console.log('API çağrısı yapılıyor...');
       
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 15000);
@@ -156,12 +156,12 @@ const NearestMosquesScreen = ({ navigation }) => {
       
       const data = await response.json();
       
-      console.log('📡 API Response Status:', data.status);
-      console.log('📊 Bulunan sonuç sayısı:', data.results?.length || 0);
+      console.log('API Response Status:', data.status);
+      console.log('Bulunan sonuç sayısı:', data.results?.length || 0);
 
-      // ✅ API KEY HATASI KONTROLÜ
+      // API KEY HATASI KONTROLÜ
       if (data.status === 'REQUEST_DENIED') {
-        console.error('❌ API KEY HATASI:', data.error_message);
+        console.error('API KEY HATASI:', data.error_message);
         Alert.alert(
           'Google Maps API Hatası',
           `API erişimi engellendi:\n\n${data.error_message || 'API key geçersiz veya kısıtlı'}\n\nLütfen Google Cloud Console'da API key ayarlarını kontrol edin.`,
@@ -172,7 +172,7 @@ const NearestMosquesScreen = ({ navigation }) => {
               onPress: () => {
                 Alert.alert(
                   'API Key Sorunu',
-                  '1. Google Cloud Console → APIs & Services\n2. Credentials → API key\n3. API restrictions: "Don\'t restrict key" seçin\n4. Application restrictions: "None" seçin\n5. Kaydet ve 5 dakika bekleyin'
+                  '1. Google Cloud Console -> APIs & Services\n2. Credentials -> API key\n3. API restrictions: "Don\'t restrict key" seçin\n4. Application restrictions: "None" seçin\n5. Kaydet ve 5 dakika bekleyin'
                 );
               }
             }
@@ -183,7 +183,7 @@ const NearestMosquesScreen = ({ navigation }) => {
       }
 
       if (data.status === 'ZERO_RESULTS') {
-        console.log('⚠️ Yakında cami bulunamadı');
+        console.log('Yakında cami bulunamadı');
         Alert.alert(
           'Bilgi',
           'Yakınınızda (5 km) kayıtlı cami bulunamadı.'
@@ -193,7 +193,7 @@ const NearestMosquesScreen = ({ navigation }) => {
       }
 
       if (data.status === 'OK' && data.results && data.results.length > 0) {
-        console.log('✅ Camiler bulundu, işleniyor...');
+        console.log('Camiler bulundu, işleniyor...');
         
         const mosquesData = data.results.map((place) => {
           const distance = calculateDistance(
@@ -220,11 +220,11 @@ const NearestMosquesScreen = ({ navigation }) => {
         
         if (mosquesData.length > 0) {
           setNearestMosque(mosquesData[0]);
-          console.log('🕌 En yakın cami:', mosquesData[0].name, '-', mosquesData[0].distance, 'km');
+          console.log('En yakın cami:', mosquesData[0].name, '-', mosquesData[0].distance, 'km');
         }
 
         setMosques(mosquesData);
-        console.log(`✅ ${mosquesData.length} cami state'e eklendi`);
+        console.log(`${mosquesData.length} cami state'e eklendi`);
         
         if (mapRef.current && mosquesData.length > 0) {
           setTimeout(() => {
@@ -240,18 +240,18 @@ const NearestMosquesScreen = ({ navigation }) => {
                 }
               );
             } catch (e) {
-              console.log('⚠️ Harita zoom hatası:', e.message);
+              console.log('Harita zoom hatası:', e.message);
             }
           }, 1000);
         }
       } else {
-        console.error('❌ Beklenmeyen API durumu:', data.status);
+        console.error('Beklenmeyen API durumu:', data.status);
         Alert.alert('Hata', `API hatası: ${data.status}. ${data.error_message || ''}`);
       }
       
       setLoading(false);
     } catch (error) {
-      console.error('❌ findNearbyMosques hatası:', error);
+      console.error('findNearbyMosques hatası:', error);
       
       if (error.name === 'AbortError') {
         Alert.alert(
@@ -292,7 +292,6 @@ const NearestMosquesScreen = ({ navigation }) => {
 
   // Haritada camiye odaklan
   const focusOnMosque = (mosque) => {
-    setSelectedMosque(mosque);
     if (mapRef.current) {
       mapRef.current.animateToRegion(
         {
@@ -331,6 +330,7 @@ const NearestMosquesScreen = ({ navigation }) => {
       <TouchableOpacity
         style={[styles.mosqueCard, isNearest && styles.nearestCard]}
         onPress={() => {
+          setSelectedMosque(item);
           focusOnMosque(item);
           setShowList(false);
         }}
@@ -412,7 +412,12 @@ const NearestMosquesScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -429,7 +434,7 @@ const NearestMosquesScreen = ({ navigation }) => {
             color="#fff"
           />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {/* Content */}
       {!showList ? (
@@ -439,6 +444,7 @@ const NearestMosquesScreen = ({ navigation }) => {
             style={styles.map}
             provider={PROVIDER_GOOGLE}
             initialRegion={location}
+            onPress={() => setSelectedMosque(null)}
             showsUserLocation
             showsMyLocationButton
             showsCompass
@@ -455,16 +461,23 @@ const NearestMosquesScreen = ({ navigation }) => {
                     latitude: mosque.latitude,
                     longitude: mosque.longitude,
                   }}
-                  title={mosque.name}
-                  description={`${mosque.distance} km`}
-                  onPress={() => focusOnMosque(mosque)}
+                  anchor={{ x: 0.5, y: 0.5 }}
+                  onPress={() => {
+                    setSelectedMosque(mosque);
+                    focusOnMosque(mosque);
+                  }}
                 >
-                  <View style={[styles.markerContainer, isNearest && styles.nearestMarker]}>
-                    <MaterialCommunityIcons
-                      name="mosque"
-                      size={24}
-                      color={isNearest ? '#f59e0b' : '#14b8a6'}
-                    />
+                  <View style={styles.markerHost} collapsable={false}>
+                    <View style={styles.markerOuter}>
+                    <View style={[styles.markerInner, isNearest && styles.markerInnerNearest]}>
+                      <MaterialCommunityIcons
+                        name="mosque"
+                        size={16}
+                        color={isNearest ? '#f59e0b' : '#14b8a6'}
+                        style={styles.markerIcon}
+                      />
+                    </View>
+                    </View>
                   </View>
                 </Marker>
               );
@@ -485,40 +498,61 @@ const NearestMosquesScreen = ({ navigation }) => {
           </MapView>
 
           {selectedMosque && (
-            <View style={styles.selectedMosqueCard}>
-              <View style={styles.selectedContent}>
-                <MaterialCommunityIcons name="mosque" size={40} color="#14b8a6" />
-
-                <View style={styles.selectedInfo}>
-                  <Text style={styles.selectedName} numberOfLines={1}>
-                    {selectedMosque.name}
-                  </Text>
-                  <Text style={styles.selectedAddress} numberOfLines={2}>
-                    {selectedMosque.address}
-                  </Text>
-                  <Text style={styles.selectedDistance}>
-                    {selectedMosque.distance} km uzaklıkta
-                  </Text>
-                </View>
-
+            <Animated.View
+              style={[
+                styles.infoCard,
+                {
+                  transform: [
+                    { translateX: cardPan.x },
+                    { translateY: cardPan.y },
+                  ],
+                },
+              ]}
+              {...cardPanResponder.panHandlers}
+            >
+              <View style={styles.infoHeader}>
+                <MaterialCommunityIcons name="mosque" size={24} color="#14b8a6" />
+                <Text style={styles.infoTitle} numberOfLines={1}>
+                  {selectedMosque.name}
+                </Text>
                 <TouchableOpacity
-                  style={styles.navigateButton}
-                  onPress={() => openDirections(selectedMosque)}
+                  style={styles.infoCloseButton}
+                  onPress={() => setSelectedMosque(null)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="navigate-circle" size={50} color="#14b8a6" />
+                  <Ionicons name="close" size={18} color="#6b7280" />
                 </TouchableOpacity>
               </View>
 
+              <Text style={styles.infoAddress} numberOfLines={2}>
+                {selectedMosque.address}
+              </Text>
+
+              <View style={styles.infoMetaRow}>
+                <Text style={styles.infoMetaText}>Mesafe: {selectedMosque.distance} km</Text>
+                {selectedMosque.open !== null && (
+                  <Text style={styles.infoMetaText}>
+                    {selectedMosque.open ? 'Açık' : 'Kapalı'}
+                  </Text>
+                )}
+                {selectedMosque.rating > 0 && (
+                  <Text style={styles.infoMetaText}>
+                    Puan: {selectedMosque.rating}
+                  </Text>
+                )}
+              </View>
+
               <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setSelectedMosque(null)}
-                activeOpacity={0.7}
+                style={styles.infoDirectionButton}
+                onPress={() => openDirections(selectedMosque)}
+                activeOpacity={0.85}
               >
-                <Ionicons name="close" size={20} color="#666" />
+                <Ionicons name="navigate" size={18} color="#fff" />
+                <Text style={styles.infoDirectionButtonText}>Yol Tarifi Al</Text>
               </TouchableOpacity>
-            </View>
+            </Animated.View>
           )}
+
         </>
       ) : (
         <FlatList
@@ -539,7 +573,7 @@ const NearestMosquesScreen = ({ navigation }) => {
   );
 };
 
-// Styles kısmı aynı kalacak, değişiklik yok
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -566,10 +600,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#14b8a6',
     paddingHorizontal: 15,
     paddingVertical: 15,
     paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   backButton: {
     padding: 5,
@@ -587,76 +622,164 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  markerContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    width: 40,
-    height: 40,
+  markerHost: {
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: 'transparent',
+    overflow: 'visible',
+  },
+  markerOuter: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    overflow: 'visible',
+  },
+  markerInner: {
+    backgroundColor: '#fff',
+    borderRadius: 13,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.12)',
+  },
+  markerInnerNearest: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#f59e0b',
+  },
+  markerIcon: {
+    fontSize: 20,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  infoCard: {
+    position: 'absolute',
+    width: 320,
+    left: '50%',
+    top: '50%',
+    marginLeft: -160,
+    marginTop: -110,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(20, 184, 166, 0.22)',
+    zIndex: 20,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  infoTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  infoCloseButton: {
+    padding: 4,
+  },
+  infoAddress: {
+    fontSize: 13,
+    color: '#4b5563',
+    marginBottom: 10,
+  },
+  infoMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 12,
+  },
+  infoMetaText: {
+    fontSize: 12,
+    color: '#0f766e',
+    fontWeight: '600',
+  },
+  infoDirectionButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#14b8a6',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  infoDirectionButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calloutBubble: {
+    alignItems: 'center',
+  },
+  calloutContainer: {
+    width: 260,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 8,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderColor: 'rgba(20, 184, 166, 0.2)',
   },
-  nearestMarker: {
-    backgroundColor: '#fff',
-    borderWidth: 3,
-    borderColor: '#f59e0b',
-    width: 40,
-    height: 40,
-    borderRadius: 25,
-  },
-  selectedMosqueCard: {
-    position: 'absolute',
-    bottom: 20,
-    left: 15,
-    right: 15,
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 10,
-  },
-  selectedContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  selectedInfo: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  selectedName: {
-    fontSize: 18,
+  calloutTitle: {
+    fontSize: 16,
     fontWeight: '700',
-    color: '#333',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  calloutAddress: {
+    fontSize: 13,
+    color: '#4b5563',
     marginBottom: 5,
   },
-  selectedAddress: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
+  calloutSubtitle: {
+    fontSize: 13,
+    color: '#0f766e',
+    fontWeight: '600',
+    marginBottom: 4,
   },
-  selectedDistance: {
-    fontSize: 14,
-    color: '#14b8a6',
+  calloutRating: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginBottom: 6,
+  },
+  calloutAction: {
+    fontSize: 12,
+    color: '#2563eb',
     fontWeight: '600',
   },
-  navigateButton: {
-    marginLeft: 10,
+  calloutArrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderTopWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#FFFFFF',
+    marginTop: -1,
   },
-  closeButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    padding: 5,
-  },
+
   listContainer: {
     padding: 15,
   },
@@ -781,3 +904,4 @@ const styles = StyleSheet.create({
 });
 
 export default NearestMosquesScreen;
+

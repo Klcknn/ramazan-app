@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     marginTop: 15,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+    paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
     gap: 10,

@@ -66,6 +66,7 @@ function HomeStackScreen() {
         name="Tesbih" 
         component={TesbihScreen}
         options={{ 
+          headerShown: false,
           title: 'Tesbih',
           headerStyle: { backgroundColor: '#00897B' },
           headerTintColor: '#fff',
@@ -156,6 +157,7 @@ function QiblaStackScreen() {
         name="QiblaMain" 
         component={QiblaScreen}
         options={{ 
+          headerShown: false,
           title: 'Kıble Pusulası',
           headerStyle: { backgroundColor: '#1565C0' },
           headerTintColor: '#fff',

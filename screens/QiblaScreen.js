@@ -1,14 +1,15 @@
+﻿import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Magnetometer } from 'expo-sensors';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { Alert, Dimensions, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LocationContext } from '../context/LocationContext';
 import { calculateDistanceToKaaba, calculateQiblaDirection } from '../utils/qiblaCalculator';
 
 const { width } = Dimensions.get('window');
 const CIRCLE_SIZE = width * 0.7;
 
-export default function QiblaScreen() {
+export default function QiblaScreen({ navigation }) {
   const { location } = useContext(LocationContext);
   const [heading, setHeading] = useState(0);
   const [qiblaDirection, setQiblaDirection] = useState(0);
@@ -80,20 +81,51 @@ export default function QiblaScreen() {
 
   const isPointingToQibla = difference < 10;
   const circleColor = isPointingToQibla ? '#4CAF50' : difference < 30 ? '#FFC107' : '#FF9800';
+  const statusReadableColor = isPointingToQibla
+    ? '#2E7D32'
+    : difference < 30
+    ? '#8A5A00'
+    : '#B45309';
 
   return (
-    <LinearGradient colors={['#1565C0', '#1976D2', '#42A5F5']} style={styles.container}>
-      <View style={styles.content}>
-        {/* Başlık */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🕋 Kıble Yönü</Text>
-          <Text style={styles.subtitle}>Telefonunuzu yavaşça çevirin</Text>
-        </View>
+    <ImageBackground
+      source={require('../assets/images/kabe_background_image.png')}
+      style={styles.container}
+      imageStyle={styles.screenBackgroundImage}
+      resizeMode="cover"
+    >
+      <LinearGradient
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerBar}
+      >
+        <TouchableOpacity onPress={() => navigation?.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
+        </TouchableOpacity>
+        <Text style={styles.headerBarTitle}>Kıble Pusulası</Text>
+        <View style={{ width: 24 }} />
+      </LinearGradient>
 
-        {/* Mesafe */}
-        <View style={styles.distanceCard}>
-          <Text style={styles.distanceLabel}>Kabe&apos;ye Mesafe</Text>
-          <Text style={styles.distanceText}>{distance.toLocaleString('tr-TR')} km</Text>
+      <View style={styles.content}>
+        <View style={styles.topStatsRow}>
+          <View style={[styles.infoCard, styles.topStatCard]}>
+            <Text style={styles.infoLabel}>Kıble Yönü</Text>
+            <Text style={[styles.infoValue, styles.topInfoValue]}>{qiblaDirection.toFixed(0)}°</Text>
+          </View>
+
+          {/* Mesafe */}
+          <View style={[styles.distanceCard, styles.topDistanceCard]}>
+            <Text style={styles.distanceLabel}>Kabe&apos;ye Mesafe</Text>
+            <Text style={[styles.distanceText, styles.topDistanceText]}>
+              {distance.toLocaleString('tr-TR')} km
+            </Text>
+          </View>
+
+          <View style={[styles.infoCard, styles.topStatCard]}>
+            <Text style={styles.infoLabel}>Telefonun Yönü</Text>
+            <Text style={[styles.infoValue, styles.topInfoValue]}>{heading.toFixed(0)}°</Text>
+          </View>
         </View>
 
         {/* Pusula Göstergesi */}
@@ -193,21 +225,13 @@ export default function QiblaScreen() {
           </View>
         </View>
 
-        {/* Bilgi Kartları */}
-        <View style={styles.infoContainer}>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Kıble Yönü</Text>
-            <Text style={styles.infoValue}>{qiblaDirection.toFixed(0)}°</Text>
-          </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoLabel}>Telefonun Yönü</Text>
-            <Text style={styles.infoValue}>{heading.toFixed(0)}°</Text>
-          </View>
+        <View style={styles.rotationNoteContainer}>
+          <Text style={styles.rotationNoteText}>Telefonunuzu yavaşça çevirin</Text>
         </View>
 
         {/* Durum Mesajı */}
-        <View style={[styles.statusCard, { backgroundColor: circleColor + '30' }]}>
-          <Text style={[styles.statusCardText, { color: circleColor }]}>
+        <View style={[styles.statusCard, { backgroundColor: '#FFFFFF', borderColor: circleColor }]}>
+          <Text style={[styles.statusCardText, { color: statusReadableColor }]}>
             {isPointingToQibla 
               ? '✅ Kıble yönüne bakıyorsunuz!' 
               : difference < 30
@@ -224,7 +248,7 @@ export default function QiblaScreen() {
           </View>
         )}
       </View>
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
@@ -232,26 +256,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+    paddingTop: 50,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerBarTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#fff',
+    flex: 1,
+    textAlign: 'center',
+  },
+  screenBackgroundImage: {
+    opacity: 0.65,
+  },
   content: {
     flex: 1,
-    paddingTop: 30,
+    paddingTop: 18,
     paddingHorizontal: 20,
     paddingBottom: 20,
     alignItems: 'center',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 15,
+  rotationNoteContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 10,
   },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 5,
-  },
-  subtitle: {
-    fontSize: 14,
+  rotationNoteText: {
+    fontSize: 13,
     color: '#E3F2FD',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  topStatsRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+    marginBottom: 18,
+    gap: 8,
+  },
+  topStatCard: {
+    flex: 1,
+    marginHorizontal: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
   },
   distanceCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -261,6 +319,13 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  topDistanceCard: {
+    flex: 1,
+    marginBottom: 0,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   distanceLabel: {
     fontSize: 12,
@@ -273,6 +338,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'center',
+  },
+  topDistanceText: {
+    fontSize: 16,
   },
   compassContainer: {
     width: CIRCLE_SIZE + 40,
@@ -321,7 +389,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   kaabaIcon: {
-    fontSize: 80,
+    fontSize: 64,
   },
   directionLabel: {
     position: 'absolute',
@@ -464,11 +532,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  topInfoValue: {
+    fontSize: 16,
+  },
   statusCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     padding: 10,
     borderRadius: 12,
     width: '100%',
+    borderWidth: 1,
   },
   statusCardText: {
     fontSize: 14,
@@ -489,3 +561,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+
+
+
