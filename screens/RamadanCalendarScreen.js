@@ -171,17 +171,11 @@ const RamadanCalendarScreen = ({ navigation }) => {
         .sort((a, b) => getGregorianDate(a[0]) - getGregorianDate(b[0]))
         .sort((a, b) => b.length - a.length)[0] || [];
 
-      // 2026 için başlangıcı 19 Şubat'tan başlat.
-      const forcedStartDate = targetYear === 2026 ? new Date(2026, 1, 19) : null;
-      const displayGroup = forcedStartDate
-        ? selectedGroup.filter((item) => getGregorianDate(item) >= forcedStartDate)
-        : selectedGroup;
-
-      if (displayGroup.length === 0) {
+      if (selectedGroup.length === 0) {
         throw new Error('Ramazan başlangıç verisi oluşturulamadı.');
       }
 
-      const fullRamadanData = displayGroup.map((item, index) => {
+      const fullRamadanData = selectedGroup.map((item, index) => {
         const gDate = getGregorianDate(item);
         const gDay = gDate.getDate();
         const gMonth = gDate.getMonth();
@@ -191,7 +185,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
           date: `${gDay} ${monthNames[gMonth]}`,
           dayName: dayNames[gDate.getDay()],
           fullDate: formatDateKey(gDate),
-          sahur: item?.timings?.Fajr?.split(' ')[0] || '--:--',
+          sahur: item?.timings?.Imsak?.split(' ')[0] || '--:--',
           iftar: item?.timings?.Maghrib?.split(' ')[0] || '--:--',
         };
       });
