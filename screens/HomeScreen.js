@@ -19,7 +19,7 @@ import {
   syncInAppNotifications,
 } from '../services/notificationService';
 
-import { getNextPrayer, getPrayerTimes } from '../services/prayerTimesAPI';
+import { getNextPrayer, getPrayerTimes, getPrayerTimesByCity } from '../services/prayerTimesAPI';
 
 const { width } = Dimensions.get('window');
 const HEADER_IMAGES = [
@@ -29,6 +29,12 @@ const HEADER_IMAGES = [
   require('../assets/images/header_cami4.jpg'),
 ];
 
+const LOCATION_STORAGE_KEYS = {
+  USE_MANUAL: 'use_manual_location',
+  CITY: 'manual_location_city',
+  DISTRICT: 'manual_location_district',
+};
+
 export default function HomeScreen() {
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [nextPrayer, setNextPrayer] = useState(null);
@@ -36,6 +42,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const navigation = useNavigation();
   const { fullLocation, location } = useContext(LocationContext);
+  const [displayLocation, setDisplayLocation] = useState('Türkiye');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   
@@ -71,6 +78,10 @@ export default function HomeScreen() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setDisplayLocation(fullLocation || 'Türkiye');
+  }, [fullLocation]);
 
   // Anlık geri sayım güncellemesi
   useEffect(() => {
@@ -297,18 +308,41 @@ export default function HomeScreen() {
     return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const getLocationPreference = useCallback(async () => {
+    const useManual = (await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.USE_MANUAL)) === 'true';
+    const manualCity = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.CITY);
+    const manualDistrict = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.DISTRICT);
+
+    return {
+      useManual,
+      city: manualCity || '',
+      district: manualDistrict || '',
+    };
+  }, []);
+
   const fetchPrayerTimes = useCallback(async () => {
     try {
       setLoading(true);
-      
-      if (location?.coords) {
+
+      const preference = await getLocationPreference();
+      let times = null;
+      let locationLabel = fullLocation || 'Türkiye';
+
+      if (preference.useManual && preference.city) {
+        times = await getPrayerTimesByCity(preference.city, preference.district);
+        locationLabel = [preference.district, preference.city].filter(Boolean).join(', ');
+      } else if (location?.coords) {
         const { latitude, longitude } = location.coords;
-        const times = await getPrayerTimes(latitude, longitude);
+        times = await getPrayerTimes(latitude, longitude);
+      }
+
+      if (times) {
         setPrayerTimes(times);
-        
+        setDisplayLocation(locationLabel);
+
         const next = getNextPrayer(times);
         setNextPrayer(next);
-        
+
         console.log('✅ Namaz vakitleri alındı:', times);
         
         // ✅ YENİ: Bildirimleri planla
@@ -343,7 +377,7 @@ export default function HomeScreen() {
       } else {
         Alert.alert(
           'Konum Gerekli',
-          'Namaz vakitlerini gösterebilmek için konum izni gereklidir.',
+          'Namaz vakitlerini gösterebilmek için konum izni verin veya Ayarlar > Konum Ayarları bölümünden il/ilçe seçin.',
           [{ text: 'Tamam' }]
         );
       }
@@ -360,11 +394,18 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  }, [location, loadNotificationCount]);
+  }, [fullLocation, getLocationPreference, loadNotificationCount, location]);
 
   useEffect(() => {
     fetchPrayerTimes();
   }, [fetchPrayerTimes]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchPrayerTimes();
+    });
+    return unsubscribe;
+  }, [navigation, fetchPrayerTimes]);
   /* const fetchPrayerTimes = async () => {
     try {
       setLoading(true);
@@ -531,7 +572,7 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.date}>{formatDate(currentTime)}</Text>
-            <Text style={styles.location}>{fullLocation}</Text>
+            <Text style={styles.location}>{displayLocation}</Text>
           </View>
           <TouchableOpacity 
             style={styles.notificationButton}

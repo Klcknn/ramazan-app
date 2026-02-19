@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useContext, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useContext, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LocationContext } from '../context/LocationContext';
 import {
   cancelImportantDayNotifications,
@@ -13,11 +13,35 @@ import {
   scheduleImportantDayNotificationsForYear,
   schedulePrayerNotifications,
 } from '../services/notificationService';
-import { getPrayerTimes } from '../services/prayerTimesAPI';
+import { getPrayerTimes, getPrayerTimesByCity } from '../services/prayerTimesAPI';
 
 
 import * as Notifications from 'expo-notifications'; // ← YENİ
 import { addTestNotification } from '../services/Notificationrenewalhelper'; // ← YENİ
+
+const LOCATION_STORAGE_KEYS = {
+  USE_MANUAL: 'use_manual_location',
+  CITY: 'manual_location_city',
+  DISTRICT: 'manual_location_district',
+};
+
+const normalizeText = (value) =>
+  (value || '')
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c');
+
+const formatDistrictName = (value) => {
+  const lower = (value || '').toLocaleLowerCase('tr-TR').trim();
+  return lower.replace(
+    /(^|[\s\-'/().])([a-zçğıöşü])/giu,
+    (match, separator, letter) => `${separator}${letter.toLocaleUpperCase('tr-TR')}`
+  );
+};
 
 export default function SettingsScreen({ navigation }) {
   // Bildirim Ayarları
@@ -33,19 +57,23 @@ export default function SettingsScreen({ navigation }) {
   // Konum
   const [selectedCity, setSelectedCity] = useState('Ankara');
   const [selectedDistrict, setSelectedDistrict] = useState('Yenişehir');
+  const [isManualLocation, setIsManualLocation] = useState(false);
+  const [locationModalVisible, setLocationModalVisible] = useState(false);
+  const [locationModalStep, setLocationModalStep] = useState('province');
+  const [locationSearch, setLocationSearch] = useState('');
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [selectedProvinceOption, setSelectedProvinceOption] = useState(null);
+  const [selectedDistrictOption, setSelectedDistrictOption] = useState(null);
   
   // Dil
-  const [selectedLanguage, setSelectedLanguage] = useState('Türkçe');
+  const [selectedLanguage] = useState('Türkçe');
 
   // ✅ YENİ: Favori sayısı
   const [favoritesCount, setFavoritesCount] = useState(0);
-  const { location } = useContext(LocationContext);
-
-  // Ayarları yükle
-  useEffect(() => {
-    loadSettings();
-    loadFavoritesCount();
-  }, []);
+  const { location, fullLocation, city } = useContext(LocationContext);
 
   // ✅ YENİ: Favori sayısını yenile
   useEffect(() => {
@@ -55,7 +83,31 @@ export default function SettingsScreen({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
-  const loadSettings = async () => {
+  const parseLocationFromContext = useCallback(() => {
+    if (!fullLocation || typeof fullLocation !== 'string') {
+      return { district: '', city: '' };
+    }
+
+    const parts = fullLocation
+      .split(',')
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    if (parts.length >= 2) {
+      return { district: parts[0], city: parts[parts.length - 1] };
+    }
+
+    return { district: '', city: parts[0] || '' };
+  }, [fullLocation]);
+
+  useEffect(() => {
+    if (isManualLocation) return;
+    const parsed = parseLocationFromContext();
+    setSelectedCity(parsed.city || city || 'Ankara');
+    setSelectedDistrict(parsed.district || 'Merkez');
+  }, [city, isManualLocation, parseLocationFromContext]);
+
+  const loadSettings = useCallback(async () => {
     const settings = await getNotificationSettings();
     setPrayerNotifications(settings.enabled);
     setNotificationSound(settings.sound);
@@ -64,6 +116,170 @@ export default function SettingsScreen({ navigation }) {
     // Önemli günler bildirimi ayarını yükle
     const importantDaysEnabled = await AsyncStorage.getItem('important_days_notifications_enabled');
     setImportantDaysNotifications(importantDaysEnabled !== 'false');
+
+    const useManual = (await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.USE_MANUAL)) === 'true';
+    const savedCity = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.CITY);
+    const savedDistrict = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.DISTRICT);
+
+    if (useManual && savedCity) {
+      setIsManualLocation(true);
+      setSelectedCity(savedCity);
+      setSelectedDistrict(savedDistrict || '');
+      return;
+    }
+
+    const parsed = parseLocationFromContext();
+    setIsManualLocation(false);
+    setSelectedCity(parsed.city || city || 'Ankara');
+    setSelectedDistrict(parsed.district || 'Merkez');
+  }, [city, parseLocationFromContext]);
+
+  // Ayarlari yukle
+  useEffect(() => {
+    loadSettings();
+    loadFavoritesCount();
+  }, [loadSettings]);
+
+  const fetchProvinces = useCallback(async () => {
+    setLoadingProvinces(true);
+    try {
+      const provinceRes = await fetch('https://ezanvakti.emushaf.net/sehirler/2');
+      const provinceData = await provinceRes.json();
+      const mappedProvinces = (provinceData || [])
+        .map((item) => ({
+          id: Number(item.SehirID),
+          name: item.SehirAdi,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'tr-TR'));
+
+      setProvinces(mappedProvinces);
+      return mappedProvinces;
+    } catch (error) {
+      console.error('İl listesi alınamadı:', error);
+      Alert.alert('Hata', 'İl listesi yüklenemedi.');
+      setProvinces([]);
+      return [];
+    } finally {
+      setLoadingProvinces(false);
+    }
+  }, []);
+
+  const fetchDistrictsByProvinceName = useCallback(async (provinceName) => {
+    if (!provinceName) return [];
+    setLoadingDistricts(true);
+    try {
+      let localProvinces = provinces;
+      if (!localProvinces.length) {
+        localProvinces = await fetchProvinces();
+      }
+
+      const matchedProvince = localProvinces.find(
+        (item) => normalizeText(item.name) === normalizeText(provinceName)
+      );
+      if (!matchedProvince?.id) {
+        setDistricts([]);
+        return [];
+      }
+
+      const districtRes = await fetch(`https://ezanvakti.emushaf.net/ilceler/${matchedProvince.id}`);
+      const districtData = await districtRes.json();
+      const mappedDistricts = (districtData || [])
+        .map((item) => ({
+          id: Number(item.IlceID),
+          name: formatDistrictName(item.IlceAdi),
+        }))
+        .sort((a, b) => {
+          const aCenter = normalizeText(a.name).includes('merkez');
+          const bCenter = normalizeText(b.name).includes('merkez');
+          if (aCenter !== bCenter) return aCenter ? -1 : 1;
+          return a.name.localeCompare(b.name, 'tr-TR');
+        });
+
+      setDistricts(mappedDistricts);
+      return mappedDistricts;
+    } catch (error) {
+      console.error('İlçe listesi alınamadı:', error);
+      Alert.alert('Hata', 'İlçe listesi yüklenemedi.');
+      setDistricts([]);
+      return [];
+    } finally {
+      setLoadingDistricts(false);
+    }
+  }, [fetchProvinces, provinces]);
+
+  const openLocationPicker = async (startStep = 'province') => {
+    const provinceList = provinces.length ? provinces : await fetchProvinces();
+    const currentProvince = provinceList.find(
+      (item) => normalizeText(item.name) === normalizeText(selectedCity)
+    );
+
+    setSelectedProvinceOption(currentProvince || null);
+    setSelectedDistrictOption(null);
+    setLocationSearch('');
+    setLocationModalVisible(true);
+
+    if (startStep === 'district' && currentProvince) {
+      setLocationModalStep('district');
+      const districtList = await fetchDistrictsByProvinceName(currentProvince.name);
+      const matchedDistrict = districtList.find(
+        (item) => normalizeText(item.name) === normalizeText(selectedDistrict)
+      );
+      setSelectedDistrictOption(matchedDistrict || null);
+      return;
+    }
+
+    setLocationModalStep('province');
+    setDistricts([]);
+  };
+
+  const handleProvinceSelectFromList = async (province) => {
+    setSelectedProvinceOption(province);
+    setSelectedDistrictOption(null);
+    setLocationModalStep('district');
+    setLocationSearch('');
+    await fetchDistrictsByProvinceName(province.name);
+  };
+
+  const handleDistrictSelectFromList = async (district) => {
+    if (!selectedProvinceOption?.name) {
+      Alert.alert('Bilgi', 'Önce il seçiniz.');
+      return;
+    }
+
+    try {
+      await AsyncStorage.setItem(LOCATION_STORAGE_KEYS.USE_MANUAL, 'true');
+      await AsyncStorage.setItem(LOCATION_STORAGE_KEYS.CITY, selectedProvinceOption.name);
+      await AsyncStorage.setItem(LOCATION_STORAGE_KEYS.DISTRICT, district?.name || '');
+
+      setSelectedCity(selectedProvinceOption.name);
+      setSelectedDistrict(district?.name || 'Merkez');
+      setSelectedDistrictOption(district || null);
+      setIsManualLocation(true);
+      setLocationModalVisible(false);
+      setLocationModalStep('province');
+      setLocationSearch('');
+      Alert.alert('Başarılı', 'Konum ayarı kaydedildi. Ana sayfa bu konuma göre güncellenecek.');
+    } catch (error) {
+      console.error('Konum kaydetme hatası:', error);
+      Alert.alert('Hata', 'Konum ayarı kaydedilemedi.');
+    }
+  };
+
+  const useCurrentLocation = async () => {
+    const parsed = parseLocationFromContext();
+    try {
+      await AsyncStorage.setItem(LOCATION_STORAGE_KEYS.USE_MANUAL, 'false');
+      await AsyncStorage.removeItem(LOCATION_STORAGE_KEYS.CITY);
+      await AsyncStorage.removeItem(LOCATION_STORAGE_KEYS.DISTRICT);
+
+      setIsManualLocation(false);
+      setSelectedCity(parsed.city || city || 'Ankara');
+      setSelectedDistrict(parsed.district || 'Merkez');
+      Alert.alert('Başarılı', 'Anlık konuma geri dönüldü.');
+    } catch (error) {
+      console.error('Anlık konuma dönüş hatası:', error);
+      Alert.alert('Hata', 'Anlık konuma dönülemedi.');
+    }
   };
 
   // ✅ YENİ: Favori sayısını yükle
@@ -173,17 +389,6 @@ const handleShowScheduledNotifications = async () => {
       });
     };
 
-    const schedulePrayerNotificationsFromCurrentLocation = async () => {
-      if (!location?.coords) {
-        Alert.alert('Konum Gerekli', 'Namaz vakti bildirimi için önce konum izni veriniz.');
-        return false;
-      }
-
-      const { latitude, longitude } = location.coords;
-      const times = await getPrayerTimes(latitude, longitude);
-      return schedulePrayerNotifications(times);
-    };
-
     try {
       if (value) {
         const hasPermission = await requestNotificationPermission();
@@ -194,7 +399,15 @@ const handleShowScheduledNotifications = async () => {
         }
 
         await saveSettings(true);
-        const scheduled = await schedulePrayerNotificationsFromCurrentLocation();
+        const times = await getPrayerTimesForSelectedLocation();
+        if (!times) {
+          setPrayerNotifications(false);
+          await saveSettings(false);
+          Alert.alert('Konum Gerekli', 'Namaz vakti bildirimi için önce konum izni veriniz.');
+          return;
+        }
+
+        const scheduled = await schedulePrayerNotifications(times);
         if (!scheduled) {
           setPrayerNotifications(false);
           await saveSettings(false);
@@ -215,6 +428,23 @@ const handleShowScheduledNotifications = async () => {
     }
   };
 
+  const getPrayerTimesForSelectedLocation = async () => {
+    const useManual = (await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.USE_MANUAL)) === 'true';
+    const manualCity = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.CITY);
+    const manualDistrict = await AsyncStorage.getItem(LOCATION_STORAGE_KEYS.DISTRICT);
+
+    if (useManual && manualCity) {
+      return getPrayerTimesByCity(manualCity, manualDistrict || '');
+    }
+
+    if (!location?.coords) {
+      return null;
+    }
+
+    const { latitude, longitude } = location.coords;
+    return getPrayerTimes(latitude, longitude);
+  };
+
   // Ses toggle handler
   const handleSoundToggle = async (value) => {
     setNotificationSound(value);
@@ -225,10 +455,11 @@ const handleShowScheduledNotifications = async () => {
         vibration,
       });
 
-      if (prayerNotifications && location?.coords) {
-        const { latitude, longitude } = location.coords;
-        const times = await getPrayerTimes(latitude, longitude);
-        await schedulePrayerNotifications(times);
+      if (prayerNotifications) {
+        const times = await getPrayerTimesForSelectedLocation();
+        if (times) {
+          await schedulePrayerNotifications(times);
+        }
       }
     } catch (error) {
       console.error('Ses ayarı güncellenemedi:', error);
@@ -246,10 +477,11 @@ const handleShowScheduledNotifications = async () => {
         vibration: value,
       });
 
-      if (prayerNotifications && location?.coords) {
-        const { latitude, longitude } = location.coords;
-        const times = await getPrayerTimes(latitude, longitude);
-        await schedulePrayerNotifications(times);
+      if (prayerNotifications) {
+        const times = await getPrayerTimesForSelectedLocation();
+        if (times) {
+          await schedulePrayerNotifications(times);
+        }
       }
     } catch (error) {
       console.error('Titreşim ayarı güncellenemedi:', error);
@@ -286,19 +518,11 @@ const handleShowScheduledNotifications = async () => {
   };
 
   const handleCityChange = () => {
-    Alert.alert(
-      'İl Seçimi',
-      'İl seçimi özelliği yakında eklenecek',
-      [{ text: 'Tamam' }]
-    );
+    openLocationPicker('province');
   };
 
   const handleDistrictChange = () => {
-    Alert.alert(
-      'İlçe Seçimi',
-      'İlçe seçimi özelliği yakında eklenecek',
-      [{ text: 'Tamam' }]
-    );
+    openLocationPicker('district');
   };
 
   const handleLanguageChange = () => {
@@ -377,6 +601,13 @@ const handleShowScheduledNotifications = async () => {
       action: handleDistrictChange,
     },
   ];
+
+  const filteredProvinces = provinces.filter((item) =>
+    normalizeText(item.name).includes(normalizeText(locationSearch))
+  );
+  const filteredDistricts = districts.filter((item) =>
+    normalizeText(item.name).includes(normalizeText(locationSearch))
+  );
 
   const generalSettings = [
     {
@@ -559,6 +790,34 @@ const handleShowScheduledNotifications = async () => {
                 </View>
               </TouchableOpacity>
             ))}
+            <View style={[styles.menuItem, styles.settingItemBorder]}>
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Text style={styles.settingIcon}>🧭</Text>
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text style={styles.settingLabel}>Konum Kaynağı</Text>
+                  <Text style={styles.settingDescription}>
+                    {isManualLocation ? 'Manuel seçim kullanılıyor' : 'Anlık konum kullanılıyor'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.themeBadge}>
+                <Text style={styles.themeBadgeText}>{isManualLocation ? 'Manuel' : 'Otomatik'}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={useCurrentLocation}>
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIconContainer}>
+                  <Text style={styles.settingIcon}>📡</Text>
+                </View>
+                <View style={styles.settingTextContainer}>
+                  <Text style={styles.settingLabel}>Anlık Konumu Kullan</Text>
+                  <Text style={styles.settingDescription}>Manuel seçimi kapat ve GPS konumuna dön</Text>
+                </View>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -689,6 +948,115 @@ const handleShowScheduledNotifications = async () => {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      <Modal
+        visible={locationModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          setLocationModalVisible(false);
+          setLocationModalStep('province');
+          setLocationSearch('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeaderRow}>
+              {locationModalStep === 'district' ? (
+                <TouchableOpacity
+                  style={styles.modalBackButton}
+                  onPress={() => {
+                    setLocationModalStep('province');
+                    setLocationSearch('');
+                  }}
+                >
+                  <Text style={styles.modalBackButtonText}>‹</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.modalBackPlaceholder} />
+              )}
+              <Text style={styles.modalTitle}>
+                {locationModalStep === 'district'
+                  ? `${selectedProvinceOption?.name || selectedCity} İlçeleri`
+                  : 'İl Seçin'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setLocationModalVisible(false);
+                  setLocationModalStep('province');
+                  setLocationSearch('');
+                }}
+              >
+                <Text style={styles.modalCloseButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchBox}>
+              <TextInput
+                style={styles.modalInput}
+                placeholder={locationModalStep === 'district' ? 'İlçe ara...' : 'İl ara...'}
+                value={locationSearch}
+                onChangeText={setLocationSearch}
+                autoCapitalize="words"
+              />
+            </View>
+
+            <ScrollView style={styles.modalList}>
+              {locationModalStep === 'province' ? (
+                <>
+                  {loadingProvinces ? (
+                    <View style={styles.modalLoadingWrap}>
+                      <ActivityIndicator size="small" color="#00897B" />
+                      <Text style={styles.modalLoadingText}>İller yükleniyor...</Text>
+                    </View>
+                  ) : (
+                    <>
+                      {filteredProvinces.map((province) => (
+                        <TouchableOpacity
+                          key={province.id}
+                          style={styles.modalItem}
+                          onPress={() => handleProvinceSelectFromList(province)}
+                        >
+                          <Text style={styles.modalItemText}>{province.name}</Text>
+                          {(selectedCity === province.name || selectedProvinceOption?.id === province.id) && (
+                            <Text style={styles.modalItemCheck}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                      {!filteredProvinces.length && <Text style={styles.noResultText}>İl bulunamadı</Text>}
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  {loadingDistricts ? (
+                    <View style={styles.modalLoadingWrap}>
+                      <ActivityIndicator size="small" color="#00897B" />
+                      <Text style={styles.modalLoadingText}>İlçeler yükleniyor...</Text>
+                    </View>
+                  ) : (
+                    <>
+                      {filteredDistricts.map((district) => (
+                        <TouchableOpacity
+                          key={district.id}
+                          style={styles.modalItem}
+                          onPress={() => handleDistrictSelectFromList(district)}
+                        >
+                          <Text style={styles.modalItemText}>{district.name}</Text>
+                          {(selectedDistrict === district.name || selectedDistrictOption?.id === district.id) && (
+                            <Text style={styles.modalItemCheck}>✓</Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                      {!filteredDistricts.length && <Text style={styles.noResultText}>İlçe bulunamadı</Text>}
+                    </>
+                  )}
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -851,5 +1219,104 @@ const styles = StyleSheet.create({
   appInfoSubtext: {
     fontSize: 12,
     color: '#BDBDBD',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalBackButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E0F2F1',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBackButtonText: {
+    fontSize: 22,
+    color: '#00897B',
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  modalBackPlaceholder: {
+    width: 28,
+    height: 28,
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#333',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 10,
+  },
+  modalCloseButtonText: {
+    fontSize: 20,
+    color: '#00897B',
+    fontWeight: '700',
+  },
+  modalSearchBox: {
+    marginBottom: 8,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#333',
+  },
+  modalList: {
+    maxHeight: 380,
+  },
+  modalLoadingWrap: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 10,
+  },
+  modalLoadingText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    paddingVertical: 12,
+  },
+  modalItemText: {
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  modalItemCheck: {
+    color: '#00897B',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  noResultText: {
+    textAlign: 'center',
+    color: '#999',
+    fontSize: 14,
+    paddingVertical: 16,
   },
 });

@@ -101,3 +101,46 @@ export const getNextPrayer = (prayerTimes) => {
     remaining: { hours, minutes }
   };
 };
+
+/**
+ * Sehir ve ilceye gore namaz vakitlerini getirir
+ * @param {string} city - Il
+ * @param {string} district - Ilce (API'de state olarak gonderilir)
+ * @param {Date} date - Tarih (opsiyonel)
+ */
+export const getPrayerTimesByCity = async (city, district = '', date = new Date()) => {
+  try {
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    const dateString = `${day}-${month}-${year}`;
+
+    const response = await axios.get(`${ALADHAN_API}/timingsByCity/${dateString}`, {
+      params: {
+        city,
+        country: 'Turkey',
+        ...(district ? { state: district } : {}),
+        method: 13,
+      },
+    });
+
+    if (response.data.code === 200) {
+      const timings = response.data.data.timings;
+      return {
+        Fajr: timings.Fajr,
+        Sunrise: timings.Sunrise,
+        Dhuhr: timings.Dhuhr,
+        Asr: timings.Asr,
+        Maghrib: timings.Maghrib,
+        Isha: timings.Isha,
+        date: response.data.data.date.readable,
+        hijriDate: response.data.data.date.hijri.date,
+      };
+    }
+
+    throw new Error('API yanit hatasi');
+  } catch (error) {
+    console.error('❌ Sehir bazli namaz vakitleri API hatasi:', error);
+    throw error;
+  }
+};
