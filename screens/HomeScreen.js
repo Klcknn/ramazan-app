@@ -464,10 +464,10 @@ export default function HomeScreen() {
 
   // ✅ 5x2 Grid için 10 özellik
   const features = [
-    { name: 'Tesbih', icon: 'counter', screen: 'Tesbih' },
+    { name: 'Zikirmatik', icon: 'counter', screen: 'Tesbih' },
     { name: 'Camiler', icon: 'mosque', screen: 'NearestMosquesScreen' },
     { name: 'Kıble', icon: 'compass-outline', screen: 'QiblaScreen' },
-    { name: 'Ramazan', icon: 'moon-waning-crescent', screen: 'RamadanCalendar' },
+    { name: 'İmsakiye', icon: 'moon-waning-crescent', screen: 'RamadanCalendar' },
     { name: 'Dua', icon: 'hands-pray', screen: 'DuaScreen' },
     { name: 'Hadis', icon: 'book-open-variant', screen: 'HadisScreen' },
     { name: 'Dini Günler', icon: 'calendar-star', screen: 'ImportantDaysScreen' },
