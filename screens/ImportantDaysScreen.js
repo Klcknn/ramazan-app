@@ -1,10 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useEffect } from 'react';
-import { Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal } from 'react-native';
-import { scheduleImportantDayNotifications } from '../services/notificationService';
-
-const { width } = Dimensions.get('window');
+import { LinearGradient } from 'expo-linear-gradient';
+import { useEffect, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ImportantDaysScreen({ navigation }) {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -338,27 +335,19 @@ export default function ImportantDaysScreen({ navigation }) {
                   <View style={styles.modalIconContainer}>
                     <Text style={styles.modalIcon}>{selectedDay.icon}</Text>
                   </View>
-                  <Text style={styles.modalTitle}>{selectedDay.detailedInfo.title}</Text>
+                  <Text style={styles.modalTitle}>{selectedDay.name}</Text>
                   <Text style={styles.modalDate}>📅 {selectedDay.formattedDate}</Text>
                 </LinearGradient>
 
                 <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-                  {/* Anlamı */}
                   <View style={styles.infoSection}>
-                    <Text style={styles.infoSectionTitle}>📖 Anlamı</Text>
-                    <Text style={styles.infoSectionText}>{selectedDay.detailedInfo.meaning}</Text>
+                    <Text style={styles.infoSectionTitle}>📖 Gün Bilgisi</Text>
+                    <Text style={styles.infoSectionText}>{selectedDay.description}</Text>
                   </View>
 
-                  {/* Önemi */}
-                  <View style={styles.infoSection}>
-                    <Text style={styles.infoSectionTitle}>⭐ Önemi</Text>
-                    <Text style={styles.infoSectionText}>{selectedDay.detailedInfo.importance}</Text>
-                  </View>
-
-                  {/* Yapılacaklar */}
                   <View style={styles.infoSection}>
                     <Text style={styles.infoSectionTitle}>✅ Bu Günde Yapılacaklar</Text>
-                    {selectedDay.detailedInfo.whatToDo.map((item, idx) => (
+                    {(selectedDay.prayers || []).map((item, idx) => (
                       <View key={idx} style={styles.todoItem}>
                         <Text style={styles.todoBullet}>•</Text>
                         <Text style={styles.todoText}>{item}</Text>
@@ -366,10 +355,12 @@ export default function ImportantDaysScreen({ navigation }) {
                     ))}
                   </View>
 
-                  {/* Hadis */}
                   <View style={[styles.infoSection, styles.hadithSection]}>
-                    <Text style={styles.infoSectionTitle}>📿 Hadis-i Şerif</Text>
-                    <Text style={styles.hadithText}>{selectedDay.detailedInfo.hadith}</Text>
+                    <Text style={styles.infoSectionTitle}>ℹ️ Kısa Özet</Text>
+                    <Text style={styles.hadithText}>
+                      {selectedDay.duration ? `${selectedDay.duration} süren mübarek günlerdendir. ` : ''}
+                      Durum: {getDaysLeftText(selectedDay)}
+                    </Text>
                   </View>
 
                   <View style={{ height: 40 }} />
@@ -452,8 +443,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
+    padding: 12,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
@@ -465,19 +456,19 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   dayIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     backgroundColor: '#E0F2F1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
   dayIconContainerPast: {
     backgroundColor: '#E0E0E0',
   },
   dayIcon: {
-    fontSize: 28,
+    fontSize: 22,
   },
   dayInfo: {
     flex: 1,
@@ -536,7 +527,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    maxHeight: '90%',
+    maxHeight: '82%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
@@ -544,7 +535,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalHeader: {
-    padding: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
     alignItems: 'center',
@@ -566,16 +558,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   modalIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   modalIcon: {
-    fontSize: 40,
+    fontSize: 28,
   },
   modalTitle: {
     fontSize: 26,
@@ -625,15 +617,18 @@ const styles = StyleSheet.create({
   },
   hadithSection: {
     backgroundColor: '#E0F2F1',
-    padding: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 16,
     borderLeftWidth: 4,
     borderLeftColor: '#00897B',
   },
   hadithText: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#333',
-    lineHeight: 24,
+    lineHeight: 20,
     fontStyle: 'italic',
   },
 });
+
+
