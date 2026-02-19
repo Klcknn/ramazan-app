@@ -3,16 +3,31 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
-import { useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { LocationContext } from '../context/LocationContext';
+import { getUnreadNotificationCount } from '../services/Notificationrenewalhelper';
 import { fetchDailyContent } from '../services/DailyContentService';
-import { listScheduledNotifications, removeNotificationListeners, schedulePrayerNotifications, setupNotificationListeners } from '../services/notificationService';
+import {
+  getImportantDaysForYear,
+  listScheduledNotifications,
+  removeNotificationListeners,
+  scheduleImportantDayNotificationsForYear,
+  schedulePrayerNotifications,
+  setupNotificationListeners,
+  syncInAppNotifications,
+} from '../services/notificationService';
 
 import { getNextPrayer, getPrayerTimes } from '../services/prayerTimesAPI';
 
 const { width } = Dimensions.get('window');
+const HEADER_IMAGES = [
+  require('../assets/images/header_cami.jpg'),
+  require('../assets/images/header_cami2.jpg'),
+  require('../assets/images/header_cami3.jpg'),
+  require('../assets/images/header_cami4.jpg'),
+];
 
 export default function HomeScreen() {
   const [prayerTimes, setPrayerTimes] = useState(null);
@@ -23,7 +38,6 @@ export default function HomeScreen() {
   const { fullLocation, location } = useContext(LocationContext);
   
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [notificationListeners, setNotificationListeners] = useState(null);
   
   // Anlık geri sayım için state
   const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
@@ -108,7 +122,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentImageIndex((prevIndex) => 
-        (prevIndex + 1) % headerImages.length
+        (prevIndex + 1) % HEADER_IMAGES.length
       );
     }, 60000); // 60 saniye
 
@@ -118,7 +132,6 @@ export default function HomeScreen() {
   // Bildirim listener'larını kur
   useEffect(() => {
     const listeners = setupNotificationListeners();
-    setNotificationListeners(listeners);
 
     return () => {
       if (listeners) {
@@ -144,8 +157,12 @@ export default function HomeScreen() {
     loadNotificationCount();
     
     // Sayfa her açıldığında badge'i güncelle
-    const unsubscribe = navigation.addListener('focus', () => {
-      console.log('🔄 [HomeScreen] Sayfa focus oldu, badge güncelleniyor');
+    const unsubscribe = navigation.addListener('focus', async () => {
+      console.log('HomeScreen focus oldu, badge guncelleniyor');
+      if (prayerTimes) {
+        const importantDays = await getImportantDaysForYear(new Date().getFullYear());
+        await syncInAppNotifications({ prayerTimes, importantDays });
+      }
       loadNotificationCount();
     });
     
@@ -158,26 +175,19 @@ export default function HomeScreen() {
       unsubscribe();
       clearInterval(interval);
     };
-  }, [navigation]);
+  }, [navigation, prayerTimes, loadNotificationCount]);
 
-  // ✅ Okunmamış bildirim sayısını yükle
-  const loadNotificationCount = async () => {
+  // Okunmamis bildirim sayisini yukle
+  const loadNotificationCount = useCallback(async () => {
     try {
-      const stored = await AsyncStorage.getItem('app_notifications');
-      if (stored) {
-        const notifications = JSON.parse(stored);
-        const unread = notifications.filter(n => !n.read).length;
-        setUnreadNotificationCount(unread);
-        console.log(`🔔 [HomeScreen] Badge: ${unread} okunmamış bildirim`);
-      } else {
-        setUnreadNotificationCount(0);
-        console.log('🔔 [HomeScreen] Badge: Bildirim yok');
-      }
+      const unread = await getUnreadNotificationCount();
+      setUnreadNotificationCount(unread);
+      console.log(`[HomeScreen] Badge: ${unread} okunmamis bildirim`);
     } catch (error) {
-      console.error('❌ [HomeScreen] Badge hatası:', error);
+      console.error('[HomeScreen] Badge hatasi:', error);
       setUnreadNotificationCount(0);
     }
-  };
+  }, []);
 
   const loadDailyContent = async () => {
     try {
@@ -287,11 +297,7 @@ export default function HomeScreen() {
     return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
   };
 
-  useEffect(() => {
-    fetchPrayerTimes();
-  }, [location]);
-  
-  const fetchPrayerTimes = async () => {
+  const fetchPrayerTimes = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -319,7 +325,20 @@ export default function HomeScreen() {
             console.log('⚠️ Bildirimler planlanamadı (izin yok veya kapalı)');
           }
         } catch (notifError) {
-          console.error('❌ Bildirim planlama hatası:', notifError);
+          console.error('Bildirim planlama hatasi:', notifError);
+        }
+
+        try {
+          const importantDaysEnabled = await AsyncStorage.getItem('important_days_notifications_enabled');
+          if (importantDaysEnabled !== 'false') {
+            await scheduleImportantDayNotificationsForYear(new Date().getFullYear());
+          }
+
+          const importantDays = await getImportantDaysForYear(new Date().getFullYear());
+          await syncInAppNotifications({ prayerTimes: times, importantDays });
+          await loadNotificationCount();
+        } catch (syncError) {
+          console.error('Bildirim senkron hatasi:', syncError);
         }
       } else {
         Alert.alert(
@@ -341,7 +360,11 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [location, loadNotificationCount]);
+
+  useEffect(() => {
+    fetchPrayerTimes();
+  }, [fetchPrayerTimes]);
   /* const fetchPrayerTimes = async () => {
     try {
       setLoading(true);
@@ -454,14 +477,6 @@ export default function HomeScreen() {
    
  
 
-  // Header arka plan resimleri - otomatik slider
-  const headerImages = [
-    require('../assets/images/header_cami.jpg'),
-    require('../assets/images/header_cami2.jpg'),
-    require('../assets/images/header_cami3.jpg'),
-    require('../assets/images/header_cami4.jpg'),
-  ];
-
   // ✅ 5x2 Grid için 10 özellik
   const features = [
     { name: 'Zikirmatik', icon: 'counter', screen: 'Tesbih' },
@@ -503,7 +518,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <ImageBackground 
-        source={headerImages[currentImageIndex]} 
+        source={HEADER_IMAGES[currentImageIndex]} 
         style={styles.backgroundImage} 
         resizeMode="cover"
       >
@@ -1605,3 +1620,8 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
   },
 });
+
+
+
+
+

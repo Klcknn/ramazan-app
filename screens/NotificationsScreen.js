@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Alert,
     FlatList,
@@ -12,59 +13,41 @@ import {
 
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadNotifications();
+  // Bildirimleri yukle
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem('app_notifications');
+      if (!stored) return;
+
+      const notifs = JSON.parse(stored);
+      const updatedNotifs = notifs.map((n) => ({ ...n, read: true }));
+      await AsyncStorage.setItem('app_notifications', JSON.stringify(updatedNotifs));
+    } catch (error) {
+      console.error('[NotificationsScreen] markAllAsRead hatasi:', error);
+    }
   }, []);
 
-  // Bildirimleri yükle
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     try {
-      console.log('📬 [NotificationsScreen] Bildirimler yükleniyor...');
       const stored = await AsyncStorage.getItem('app_notifications');
-      
+
       if (stored) {
         const notifs = JSON.parse(stored);
-        console.log(`📬 [NotificationsScreen] ${notifs.length} bildirim bulundu`);
-        
-        // En yeni önce
         notifs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         setNotifications(notifs);
-        
-        // Tüm bildirimleri okundu olarak işaretle
         await markAllAsRead();
       } else {
-        console.log('📬 [NotificationsScreen] Hiç bildirim yok');
         setNotifications([]);
       }
     } catch (error) {
-      console.error('❌ [NotificationsScreen] Yükleme hatası:', error);
-    } finally {
-      setLoading(false);
+      console.error('[NotificationsScreen] Yukleme hatasi:', error);
     }
-  };
+  }, [markAllAsRead]);
 
-  // Tüm bildirimleri okundu olarak işaretle
-  const markAllAsRead = async () => {
-    try {
-      console.log('✏️ [NotificationsScreen] Tüm bildirimler okundu yapılıyor...');
-      const stored = await AsyncStorage.getItem('app_notifications');
-      
-      if (stored) {
-        const notifs = JSON.parse(stored);
-        const unreadCount = notifs.filter(n => !n.read).length;
-        console.log(`✏️ [NotificationsScreen] ${unreadCount} okunmamış bildirim işaretleniyor`);
-        
-        const updatedNotifs = notifs.map(n => ({ ...n, read: true }));
-        await AsyncStorage.setItem('app_notifications', JSON.stringify(updatedNotifs));
-        
-        console.log('✅ [NotificationsScreen] Tüm bildirimler okundu olarak kaydedildi');
-      }
-    } catch (error) {
-      console.error('❌ [NotificationsScreen] markAllAsRead hatası:', error);
-    }
-  };
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
 
   // Tek bildirimi sil
   const deleteNotification = async (id) => {
@@ -129,7 +112,8 @@ export default function NotificationsScreen({ navigation }) {
       case 'prayer': return '🕌';
       case 'dua': return '🤲';
       case 'hadis': return '📖';
-      case 'important_day': return '📅';
+      case 'important_day': return '\u{1F4C5}';
+      case 'main': return '\u{1F4C5}';
       case 'reminder': return '⏰';
       default: return '🔔';
     }
@@ -161,18 +145,17 @@ export default function NotificationsScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <LinearGradient
-        colors={['#00897B', '#26A69A']}
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>←</Text>
+          <TouchableOpacity onPress={() => navigation?.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Bildirimler</Text>
-          <View style={styles.backButton} />
+          <View style={{ width: 24 }} />
         </View>
         
         {notifications.length > 0 && (
@@ -216,31 +199,22 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 15,
     paddingHorizontal: 20,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 40,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
   },
   headerStats: {
     flexDirection: 'row',
@@ -351,3 +325,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
+

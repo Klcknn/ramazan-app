@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 export default function FavoritesScreen({ navigation }) {
@@ -167,17 +168,16 @@ export default function FavoritesScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#00897B', '#26A69A']}
+        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.backButtonText}>←</Text>
+        <TouchableOpacity onPress={() => navigation?.goBack()}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Favorilerim</Text>
-        <View style={styles.backButton} />
+        <View style={{ width: 24 }} />
       </LinearGradient>
 
       {favorites.length === 0 ? (
@@ -218,27 +218,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 15,
+    paddingVertical: 15,
     paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
   },
   statsContainer: {
     backgroundColor: '#FFFFFF',
@@ -389,3 +380,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+

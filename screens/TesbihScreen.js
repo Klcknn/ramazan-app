@@ -1,5 +1,5 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
@@ -127,26 +127,6 @@ export default function TesbihScreen({ navigation }) {
     }
   };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Sıfırla',
-      'Bu hedefteki sayacı sıfırlamak istediğinize emin misiniz?',
-      [
-        { text: 'İptal', style: 'cancel' },
-        {
-          text: 'Sıfırla',
-          style: 'destructive',
-          onPress: () => {
-            setCountsByTarget((prev) => ({
-              ...prev,
-              [target]: 0,
-            }));
-          },
-        },
-      ]
-    );
-  };
-
   const handleTargetChange = (newTarget) => {
     if (newTarget === 'refresh') {
       setCountsByTarget((prev) => ({
@@ -180,7 +160,7 @@ export default function TesbihScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation?.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Tesbih</Text>
+          <Text style={styles.headerTitle}>Zikirmatik</Text>
           <View style={{ width: 24 }} />
         </LinearGradient>
 
@@ -230,15 +210,11 @@ export default function TesbihScreen({ navigation }) {
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
-            <LinearGradient colors={['#FFFFFF', '#F5F5F5']} style={styles.mainButtonGradient}>
-              <Text style={styles.mainButtonText}>📿</Text>
-              <Text style={styles.mainButtonLabel}>Dokun</Text>
+            <LinearGradient colors={['#4DB6AC', '#26A69A']} style={styles.mainButtonGradient}>
+              <MaterialCommunityIcons name="hands-pray" size={52} color="#FFFFFF" />
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
-            <Text style={styles.resetButtonText}>🔄 Sıfırla</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </ImageBackground>
@@ -302,8 +278,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   targetButtonActive: {
-    backgroundColor: '#2E7D32',
-    borderColor: '#FFFFFF',
+    backgroundColor: '#26A69A',
+    borderColor: '#B2DFDB',
   },
   targetButtonText: {
     fontSize: 16,
@@ -359,9 +335,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   mainButton: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
+    width: 132,
+    height: 132,
+    borderRadius: 66,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -375,25 +351,5 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  mainButtonText: {
-    fontSize: 54,
-    marginBottom: 6,
-  },
-  mainButtonLabel: {
-    fontSize: 16,
-    color: '#00897B',
-    fontWeight: 'bold',
-  },
-  resetButton: {
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 25,
-  },
-  resetButtonText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
 });

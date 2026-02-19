@@ -1,8 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
-import { getNotificationSettings, listScheduledNotifications, requestNotificationPermission, saveNotificationSettings } from '../services/notificationService';
+import { LocationContext } from '../context/LocationContext';
+import {
+  cancelImportantDayNotifications,
+  cancelPrayerNotifications,
+  getNotificationSettings,
+  listScheduledNotifications,
+  requestNotificationPermission,
+  saveNotificationSettings,
+  scheduleImportantDayNotificationsForYear,
+  schedulePrayerNotifications,
+} from '../services/notificationService';
+import { getPrayerTimes } from '../services/prayerTimesAPI';
 
 
 import * as Notifications from 'expo-notifications'; // ← YENİ
@@ -28,6 +39,7 @@ export default function SettingsScreen({ navigation }) {
 
   // ✅ YENİ: Favori sayısı
   const [favoritesCount, setFavoritesCount] = useState(0);
+  const { location } = useContext(LocationContext);
 
   // Ayarları yükle
   useEffect(() => {
@@ -152,62 +164,125 @@ const handleShowScheduledNotifications = async () => {
   // Bildirim toggle handler
   const handleNotificationToggle = async (value) => {
     setPrayerNotifications(value);
-    
-    if (value) {
-      // İzin iste
-      const hasPermission = await requestNotificationPermission();
-      if (!hasPermission) {
-        setPrayerNotifications(false);
+
+    const saveSettings = async (enabledValue) => {
+      await saveNotificationSettings({
+        enabled: enabledValue,
+        sound: notificationSound,
+        vibration,
+      });
+    };
+
+    const schedulePrayerNotificationsFromCurrentLocation = async () => {
+      if (!location?.coords) {
+        Alert.alert('Konum Gerekli', 'Namaz vakti bildirimi için önce konum izni veriniz.');
+        return false;
+      }
+
+      const { latitude, longitude } = location.coords;
+      const times = await getPrayerTimes(latitude, longitude);
+      return schedulePrayerNotifications(times);
+    };
+
+    try {
+      if (value) {
+        const hasPermission = await requestNotificationPermission();
+        if (!hasPermission) {
+          setPrayerNotifications(false);
+          await saveSettings(false);
+          return;
+        }
+
+        await saveSettings(true);
+        const scheduled = await schedulePrayerNotificationsFromCurrentLocation();
+        if (!scheduled) {
+          setPrayerNotifications(false);
+          await saveSettings(false);
+          Alert.alert('Bilgi', 'Namaz vakti bildirimleri planlanamadı.');
+          return;
+        }
+
+        Alert.alert('Başarılı', 'Namaz vakti bildirimleri aktif edildi.');
         return;
       }
-    }
-    
-    // Ayarları kaydet
-    await saveNotificationSettings({
-      enabled: value,
-      sound: notificationSound,
-      vibration: vibration,
-    });
 
-    Alert.alert(
-      'Başarılı',
-      value 
-        ? 'Namaz vakti bildirimleri aktif edildi. Namaz vakitleri güncellendiğinde bildirimler otomatik planlanacak.' 
-        : 'Namaz vakti bildirimleri kapatıldı.'
-    );
+      await cancelPrayerNotifications();
+      await saveSettings(false);
+      Alert.alert('Başarılı', 'Namaz vakti bildirimleri kapatıldı.');
+    } catch (error) {
+      console.error('Namaz bildirimi ayar hatası:', error);
+      Alert.alert('Hata', 'Namaz bildirimi ayarı güncellenemedi.');
+    }
   };
 
   // Ses toggle handler
   const handleSoundToggle = async (value) => {
     setNotificationSound(value);
-    await saveNotificationSettings({
-      enabled: prayerNotifications,
-      sound: value,
-      vibration: vibration,
-    });
+    try {
+      await saveNotificationSettings({
+        enabled: prayerNotifications,
+        sound: value,
+        vibration,
+      });
+
+      if (prayerNotifications && location?.coords) {
+        const { latitude, longitude } = location.coords;
+        const times = await getPrayerTimes(latitude, longitude);
+        await schedulePrayerNotifications(times);
+      }
+    } catch (error) {
+      console.error('Ses ayarı güncellenemedi:', error);
+      Alert.alert('Hata', 'Ezan sesi ayarı güncellenemedi.');
+    }
   };
 
   // Titreşim toggle handler
   const handleVibrationToggle = async (value) => {
     setVibration(value);
-    await saveNotificationSettings({
-      enabled: prayerNotifications,
-      sound: notificationSound,
-      vibration: value,
-    });
+    try {
+      await saveNotificationSettings({
+        enabled: prayerNotifications,
+        sound: notificationSound,
+        vibration: value,
+      });
+
+      if (prayerNotifications && location?.coords) {
+        const { latitude, longitude } = location.coords;
+        const times = await getPrayerTimes(latitude, longitude);
+        await schedulePrayerNotifications(times);
+      }
+    } catch (error) {
+      console.error('Titreşim ayarı güncellenemedi:', error);
+      Alert.alert('Hata', 'Titreşim ayarı güncellenemedi.');
+    }
   };
 
   // Önemli günler bildirimi toggle handler
   const handleImportantDaysToggle = async (value) => {
     setImportantDaysNotifications(value);
-    await AsyncStorage.setItem('important_days_notifications_enabled', value.toString());
-    
-    Alert.alert(
-      'Başarılı',
-      value 
-        ? 'Önemli dini günler için bildirimler aktif edildi. Önemli günlerden 1 gün önce saat 11:00\'de hatırlatma alacaksınız.' 
-        : 'Önemli dini günler bildirimleri kapatıldı.'
-    );
+
+    try {
+      if (value) {
+        const hasPermission = await requestNotificationPermission();
+        if (!hasPermission) {
+          setImportantDaysNotifications(false);
+          await AsyncStorage.setItem('important_days_notifications_enabled', 'false');
+          return;
+        }
+
+        await AsyncStorage.setItem('important_days_notifications_enabled', 'true');
+        await scheduleImportantDayNotificationsForYear(new Date().getFullYear());
+        Alert.alert('Başarılı', 'Önemli gün bildirimleri aktif edildi.');
+        return;
+      }
+
+      await AsyncStorage.setItem('important_days_notifications_enabled', 'false');
+      await cancelImportantDayNotifications();
+      Alert.alert('Başarılı', 'Önemli gün bildirimleri kapatıldı.');
+    } catch (error) {
+      console.error('Önemli gün ayarı güncellenemedi:', error);
+      Alert.alert('Hata', 'Önemli gün bildirim ayarı güncellenemedi.');
+    }
   };
 
   const handleCityChange = () => {
