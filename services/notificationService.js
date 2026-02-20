@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
 };
 const MAX_CONCURRENT_ALARMS = 500;
 const ALARM_BUFFER = 20;
+let prayerSchedulingInFlight = null;
 
 const PRAYER_SCHEDULES = [
   { name: 'İmsak', key: 'Fajr', icon: '🌟' },
@@ -71,7 +72,12 @@ const getChannelId = (item) => item?.content?.channelId || item?.trigger?.channe
 const isPrayerNotification = (item) => {
   const type = getNotificationType(item);
   const channelId = getChannelId(item);
-  return type === 'prayer' || channelId === 'prayer-times';
+  const title = item?.content?.title || '';
+  return (
+    type === 'prayer' ||
+    (typeof channelId === 'string' && channelId.startsWith('prayer-times')) ||
+    (typeof title === 'string' && title.includes('Vakti Girdi'))
+  );
 };
 
 const isImportantDayNotification = (item) => {
@@ -519,97 +525,108 @@ const scheduleNotificationForPrayer = async (
  * Tüm namaz vakitleri için bildirimleri planla
  */
 export const schedulePrayerNotifications = async (prayerTimes) => {
-  try {
-    console.log('🔔 Bildirim planlama başlıyor...');
+  if (prayerSchedulingInFlight) {
+    console.log('⏳ Namaz bildirim planlama zaten devam ediyor, mevcut işlem bekleniyor');
+    return prayerSchedulingInFlight;
+  }
 
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) {
-      console.log('❌ Bildirim izni yok');
-      return false;
-    }
+  prayerSchedulingInFlight = (async () => {
+    try {
+      console.log('🔔 Bildirim planlama başlıyor...');
 
-    const notificationEnabled = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_ENABLED);
-    if (notificationEnabled === 'false') {
-      console.log('Bildirimler kapali');
-      return false;
-    }
-    
-    const soundEnabled = (await AsyncStorage.getItem(STORAGE_KEYS.SOUND_ENABLED)) !== 'false';
-    const vibrationEnabled = (await AsyncStorage.getItem(STORAGE_KEYS.VIBRATION_ENABLED)) !== 'false';
+      const hasPermission = await requestNotificationPermission();
+      if (!hasPermission) {
+        console.log('❌ Bildirim izni yok');
+        return false;
+      }
 
-    const existingScheduled = await AsyncStorage.getItem(STORAGE_KEYS.SCHEDULED_NOTIFICATIONS);
-    const existingItems = existingScheduled ? JSON.parse(existingScheduled) : [];
-    for (const item of existingItems) {
-      for (const id of item.ids || []) {
-        try {
-          await Notifications.cancelScheduledNotificationAsync(id);
-        } catch (cancelError) {
-          console.warn('Eski namaz bildirimi iptal edilemedi:', cancelError);
+      const notificationEnabled = await AsyncStorage.getItem(STORAGE_KEYS.NOTIFICATION_ENABLED);
+      if (notificationEnabled === 'false') {
+        console.log('Bildirimler kapali');
+        return false;
+      }
+      
+      const soundEnabled = (await AsyncStorage.getItem(STORAGE_KEYS.SOUND_ENABLED)) !== 'false';
+      const vibrationEnabled = (await AsyncStorage.getItem(STORAGE_KEYS.VIBRATION_ENABLED)) !== 'false';
+
+      const existingScheduled = await AsyncStorage.getItem(STORAGE_KEYS.SCHEDULED_NOTIFICATIONS);
+      const existingItems = existingScheduled ? JSON.parse(existingScheduled) : [];
+      for (const item of existingItems) {
+        for (const id of item.ids || []) {
+          try {
+            await Notifications.cancelScheduledNotificationAsync(id);
+          } catch (cancelError) {
+            console.warn('Eski namaz bildirimi iptal edilemedi:', cancelError);
+          }
         }
       }
-    }
-    console.log('Eski namaz bildirimleri temizlendi');
-    const stalePrayerCount = await cancelScheduledByPredicate(isPrayerNotification);
-    if (stalePrayerCount > 0) {
-      console.log(`Ek olarak ${stalePrayerCount} eski namaz alarmi temizlendi`);
-    }
-
-    const slotState = { remaining: await getRemainingAlarmSlots() };
-    if (slotState.remaining <= 0) {
-      console.warn('Alarm limiti dolu, namaz bildirimleri planlanamadi');
-      return false;
-    }
-
-    const prayers = PRAYER_SCHEDULES.map((prayer) => ({
-      name: prayer.name,
-      time: prayerTimes[prayer.key],
-      icon: prayer.icon,
-    }));
-
-    const allScheduledIds = [];
-
-    for (const prayer of prayers) {
-      if (!prayer.time) {
-        console.warn(`⚠️ ${prayer.name} vakti bulunamadı`);
-        continue;
+      console.log('Eski namaz bildirimleri temizlendi');
+      const stalePrayerCount = await cancelScheduledByPredicate(isPrayerNotification);
+      if (stalePrayerCount > 0) {
+        console.log(`Ek olarak ${stalePrayerCount} eski namaz alarmi temizlendi`);
       }
 
-      const notificationIds = await scheduleNotificationForPrayer(
-        prayer.name,
-        prayer.time,
-        prayer.icon,
-        slotState,
-        soundEnabled,
-        vibrationEnabled
+      const slotState = { remaining: await getRemainingAlarmSlots() };
+      if (slotState.remaining <= 0) {
+        console.warn('Alarm limiti dolu, namaz bildirimleri planlanamadi');
+        return false;
+      }
+
+      const prayers = PRAYER_SCHEDULES.map((prayer) => ({
+        name: prayer.name,
+        time: prayerTimes[prayer.key],
+        icon: prayer.icon,
+      }));
+
+      const allScheduledIds = [];
+
+      for (const prayer of prayers) {
+        if (!prayer.time) {
+          console.warn(`⚠️ ${prayer.name} vakti bulunamadı`);
+          continue;
+        }
+
+        const notificationIds = await scheduleNotificationForPrayer(
+          prayer.name,
+          prayer.time,
+          prayer.icon,
+          slotState,
+          soundEnabled,
+          vibrationEnabled
+        );
+        
+        if (notificationIds.length > 0) {
+          allScheduledIds.push({
+            prayer: prayer.name,
+            ids: notificationIds,
+            count: notificationIds.length
+          });
+        }
+      }
+
+      // Planlanan bildirimleri kaydet
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.SCHEDULED_NOTIFICATIONS,
+        JSON.stringify(allScheduledIds)
       );
+
+      // Kontrol için planlanan bildirimleri say
+      const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+      console.log(`📊 Toplam ${scheduled.length} bildirim planlandı (Sistem)`);
+
+      const totalByPrayer = allScheduledIds.reduce((sum, p) => sum + p.count, 0);
+      console.log(`✅ ${allScheduledIds.length} namaz vakti için ${totalByPrayer} bildirim planlandı`);
       
-      if (notificationIds.length > 0) {
-        allScheduledIds.push({
-          prayer: prayer.name,
-          ids: notificationIds,
-          count: notificationIds.length
-        });
-      }
+      return true;
+    } catch (error) {
+      console.error('❌ Bildirim planlama hatası:', error);
+      return false;
+    } finally {
+      prayerSchedulingInFlight = null;
     }
+  })();
 
-    // Planlanan bildirimleri kaydet
-    await AsyncStorage.setItem(
-      STORAGE_KEYS.SCHEDULED_NOTIFICATIONS,
-      JSON.stringify(allScheduledIds)
-    );
-
-    // Kontrol için planlanan bildirimleri say
-    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log(`📊 Toplam ${scheduled.length} bildirim planlandı (Sistem)`);
-
-    const totalByPrayer = allScheduledIds.reduce((sum, p) => sum + p.count, 0);
-    console.log(`✅ ${allScheduledIds.length} namaz vakti için ${totalByPrayer} bildirim planlandı`);
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Bildirim planlama hatası:', error);
-    return false;
-  }
+  return prayerSchedulingInFlight;
 };
 
 /**
