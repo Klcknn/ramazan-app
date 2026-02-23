@@ -40,7 +40,6 @@ export default function SplashScreen({ onFinish }) {
       </Animated.View>
 
       <View style={styles.textContainer}>
-        <Text style={styles.appName}>Vakitçim</Text>
         <Text style={styles.appSlogan}>Namaz, Dua ve Kıble Rehberiniz</Text>
       </View>
     </LinearGradient>
@@ -57,7 +56,7 @@ const styles = StyleSheet.create({
   logoWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 4,
   },
   logo: {
     width: 190,
@@ -67,16 +66,8 @@ const styles = StyleSheet.create({
   textContainer: {
     alignItems: 'center',
   },
-  appName: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 1.5,
-    textAlign: 'center',
-  },
   appSlogan: {
-    marginTop: 8,
-    fontSize: 14,
+    fontSize: 18,
     color: '#E0F2F1',
     textAlign: 'center',
   },
