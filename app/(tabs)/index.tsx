@@ -263,6 +263,8 @@ function MainTabs() {
               flex: 1,
               borderTopLeftRadius: 25,
               borderTopRightRadius: 25,
+              borderBottomLeftRadius: 25,
+              borderBottomRightRadius: 25,
             }}
           />
         ),
@@ -361,17 +363,19 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     position: 'absolute',
-    bottom: 34,
+    bottom: 48,
     left: 0,
     right: 0,
-    height: 70,
+    height: 64,
     backgroundColor: 'transparent',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
     overflow: 'hidden',
     paddingHorizontal: 8,
-    paddingBottom: 6,
-    paddingTop: 7,
+    paddingBottom: 4,
+    paddingTop: 5,
     shadowColor: '#0A3D36',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.2,
@@ -384,6 +388,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     width: 70,
+    marginTop: 8,
   },
   iconWrapper: {
     width: 42,
@@ -423,6 +428,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 });
-
-
-

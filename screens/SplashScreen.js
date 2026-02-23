@@ -1,4 +1,4 @@
-import { LinearGradient } from 'expo-linear-gradient';
+﻿import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, View } from 'react-native';
 
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   logoWrapper: {
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
   },
   logo: {
     width: 190,
@@ -81,3 +81,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+

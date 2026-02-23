@@ -10,7 +10,6 @@ import {
   cancelImportantDayNotifications,
   cancelPrayerNotifications,
   getNotificationSettings,
-  listScheduledNotifications,
   requestNotificationPermission,
   saveNotificationSettings,
   scheduleImportantDayNotificationsForYear,
@@ -18,9 +17,6 @@ import {
 } from '../services/notificationService';
 import { getPrayerTimes, getPrayerTimesByCity } from '../services/prayerTimesAPI';
 
-
-import * as Notifications from 'expo-notifications';
-import { addTestNotification } from '../services/Notificationrenewalhelper';
 
 const LOCATION_STORAGE_KEYS = {
   USE_MANUAL: 'use_manual_location',
@@ -54,7 +50,7 @@ export default function SettingsScreen({ navigation }) {
   const [vibration, setVibration] = useState(true);
   
   // Görünüm Ayarları
-  const { darkMode, setDarkMode, backgroundTheme, setBackgroundTheme } = useAppearance();
+  const { darkMode, setDarkMode } = useAppearance();
   const { language, setLanguage, t, languages, getLanguageByCode } = useLocalization();
   const theme = useAppTheme();
   
@@ -300,85 +296,6 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  // Test ve debug fonksiyonları
-
-// Test bildirimi gönder
-const handleTestNotification = async () => {
-  try {
-    // 1. İzin kontrol
-    const hasPermission = await requestNotificationPermission();
-    if (!hasPermission) {
-      Alert.alert(t('common.error'), t('settings.notificationPermissionDenied'));
-      return;
-    }
-
-    // 2. Test bildirimi planla (5 saniye sonra)
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: `🕌 ${t('settings.testNotificationTitle')}`,
-        body: `${t('settings.testNotificationBody')} ✅`,
-        sound: true,
-        data: { type: 'test' },
-      },
-      trigger: {
-        seconds: 5,
-      },
-    });
-
-    // 3. In-app listeye ekle
-    await addTestNotification();
-
-    Alert.alert(
-      t('common.success'),
-      t('settings.testNotificationScheduled'),
-      [{ text: t('common.ok') }]
-    );
-
-    console.log('✅ Test bildirimi planlandı');
-  } catch (error) {
-    console.error('❌ Test bildirimi hatası:', error);
-    Alert.alert(t('common.error'), t('settings.testNotificationError'));
-  }
-};
-
-// Planlanan bildirimleri göster
-const handleShowScheduledNotifications = async () => {
-  try {
-    const scheduled = await listScheduledNotifications();
-    
-    if (scheduled.length === 0) {
-      Alert.alert(
-        t('common.info'),
-        t('settings.noScheduledNotifications'),
-        [{ text: t('common.ok') }]
-      );
-      return;
-    }
-
-    // Bildirimleri grupla
-    const byType = scheduled.reduce((acc, notif) => {
-      const type = notif.content?.data?.prayerName || 'Diğer';
-      acc[type] = (acc[type] || 0) + 1;
-      return acc;
-    }, {});
-
-    const message = Object.entries(byType)
-      .map(([type, count]) => `${type}: ${count} bildirim`)
-      .join('\n');
-
-    Alert.alert(
-      `📊 ${t('settings.scheduledNotificationsTitle')} (${scheduled.length})`,
-      message,
-      [{ text: t('common.ok') }]
-    );
-
-    console.log('📋 Planlanan bildirimler:', scheduled);
-  } catch (error) {
-    console.error('❌ Listeleme hatası:', error);
-    Alert.alert(t('common.error'), t('settings.scheduledNotificationsError'));
-  }
-};
-
   // Bildirim toggle handler
   const handleNotificationToggle = async (value) => {
     setPrayerNotifications(value);
@@ -537,19 +454,6 @@ const handleShowScheduledNotifications = async () => {
     Alert.alert(t('common.success'), t('settings.languageUpdated'));
   };
 
-  const handleBackgroundChange = () => {
-    Alert.alert(
-      t('settings.backgroundTheme'),
-      '',
-      [
-        { text: t('settings.themeDefault'), onPress: () => setBackgroundTheme('default') },
-        { text: t('settings.themePattern'), onPress: () => setBackgroundTheme('pattern') },
-        { text: t('settings.themeGradient'), onPress: () => setBackgroundTheme('gradient') },
-        { text: t('common.cancel'), style: 'cancel' },
-      ]
-    );
-  };
-
   const notificationSettings = [
       {
       icon: '🔔',
@@ -613,35 +517,11 @@ const handleShowScheduledNotifications = async () => {
     normalizeText(item.name).includes(normalizeText(locationSearch))
   );
 
-  const generalSettings = [
-    {
-      icon: '🕰️',
-      label: t('settings.calculationMethod'),
-      value: 'Diyanet',
-      action: () => Alert.alert(t('common.soon'), t('settings.calcMethodSoon')),
-    },
-  ];
-
   const supportItems = [
-    {
-      icon: '📖',
-      label: t('settings.guideTitle'),
-      action: () => Alert.alert(t('settings.guideTitle'), t('settings.guideSoon')),
-    },
-    {
-      icon: '❓',
-      label: t('settings.faqTitle'),
-      action: () => Alert.alert(t('settings.faqTitle'), t('settings.faqSoon')),
-    },
     {
       icon: '💬',
       label: t('settings.feedbackTitle'),
       action: () => Alert.alert(t('settings.feedbackTitle'), t('settings.feedbackBody')),
-    },
-    {
-      icon: '⭐',
-      label: t('settings.rateThanksTitle'),
-      action: () => Alert.alert(t('settings.rateThanksTitle'), t('settings.rateThanksBody')),
     },
     {
       icon: 'ℹ️',
@@ -650,24 +530,6 @@ const handleShowScheduledNotifications = async () => {
         'Vakitçim',
         'Versiyon: 1.0.0\n\n© 2026 Tüm hakları saklıdır.\n\nBu uygulama, Müslümanların günlük ibadetlerini kolaylaştırmak için geliştirilmiştir.\n\nÖzellikler:\n• Namaz vakitleri\n• Kıble pusulası\n• Günlük dua ve hadisler\n• Tesbih\n• Yakın camiler\n• Ve daha fazlası...'
       ),
-    },
-    // Test butonu
-    {
-      icon: '🔔',
-      label: t('settings.testNotificationTitle'),
-      action: handleTestNotification,
-    },
-    // Planlanan bildirimleri göster
-    {
-      icon: '📊',
-      label: t('settings.scheduledNotificationsTitle'),
-      action: handleShowScheduledNotifications,
-    },
-    
-    {
-      icon: 'ℹ️',
-      label: t('settings.aboutTitle'),
-      action: () => Alert.alert(/* ... */),
     },
   ];
 
@@ -844,61 +706,6 @@ const handleShowScheduledNotifications = async () => {
                   thumbColor={item.value ? theme.switchThumbOn : theme.switchThumbOff}
                 />
               </View>
-            ))}
-            <TouchableOpacity
-              style={styles.menuItem}
-              activeOpacity={0.7}
-              onPress={handleBackgroundChange}
-            >
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIconContainer}>
-                  <Text style={styles.settingIcon}>🖼️</Text>
-                </View>
-                <View style={styles.settingTextContainer}>
-                  <Text style={[styles.settingLabel, { color: theme.text }]}>{t('settings.backgroundTheme')}</Text>
-                  <Text style={[styles.settingDescription, { color: theme.textMuted }]}>{t('settings.backgroundThemeDescription')}</Text>
-                </View>
-              </View>
-              <View style={styles.menuRight}>
-                <View style={styles.themeBadge}>
-                  <Text style={styles.themeBadgeText}>
-                    {backgroundTheme === 'default' ? t('settings.themeDefault') : backgroundTheme === 'pattern' ? t('settings.themePattern') : t('settings.themeGradient')}
-                  </Text>
-                </View>
-                <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Genel Ayarlar */}
-        <View style={styles.section}>
-          <View style={styles.sectionTitleContainer}>
-            <Text style={styles.sectionIcon}>⚙️</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionGeneral')}</Text>
-          </View>
-          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {generalSettings.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.menuItem,
-                  index !== generalSettings.length - 1 && styles.settingItemBorder,
-                ]}
-                activeOpacity={0.7}
-                onPress={item.action}
-              >
-                <View style={styles.settingLeft}>
-                  <View style={styles.settingIconContainer}>
-                    <Text style={styles.settingIcon}>{item.icon}</Text>
-                  </View>
-                  <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
-                </View>
-                <View style={styles.menuRight}>
-                  <Text style={[styles.valueText, { color: theme.textMuted }]}>{item.value}</Text>
-                  <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
-                </View>
-              </TouchableOpacity>
             ))}
           </View>
         </View>
