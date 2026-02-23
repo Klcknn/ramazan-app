@@ -18,8 +18,12 @@ import {
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 // expo-constants import
 import Constants from 'expo-constants';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 const NearestMosquesScreen = ({ navigation }) => {
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   const [location, setLocation] = useState(null);
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -352,7 +356,7 @@ const NearestMosquesScreen = ({ navigation }) => {
               </Text>
               {isNearest && (
                 <View style={styles.nearestBadge}>
-                  <Text style={styles.nearestBadgeText}>En Yakın</Text>
+                  <Text style={styles.nearestBadgeText}>{t('mosques.nearest')}</Text>
                 </View>
               )}
             </View>
@@ -379,7 +383,7 @@ const NearestMosquesScreen = ({ navigation }) => {
                 <View style={styles.detailItem}>
                   <View style={[styles.statusDot, item.open && styles.statusOpen]} />
                   <Text style={styles.detailText}>
-                    {item.open ? 'Açık' : 'Kapalı'}
+                      {item.open ? t('mosques.open') : t('mosques.closed')}
                   </Text>
                 </View>
               )}
@@ -401,19 +405,19 @@ const NearestMosquesScreen = ({ navigation }) => {
   // Loading ekranı
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#14b8a6" />
-        <Text style={styles.loadingText}>Yakındaki camiler aranıyor...</Text>
-        <Text style={styles.loadingSubtext}>Konum ve harita yükleniyor</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>{t('mosques.loadingTitle')}</Text>
+        <Text style={[styles.loadingSubtext, { color: theme.textMuted }]}>{t('mosques.loadingDesc')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Header */}
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -422,7 +426,7 @@ const NearestMosquesScreen = ({ navigation }) => {
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Yakındaki Camiler</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.mosques')}</Text>
 
         <TouchableOpacity
           style={styles.listButton}
@@ -501,6 +505,7 @@ const NearestMosquesScreen = ({ navigation }) => {
             <Animated.View
               style={[
                 styles.infoCard,
+                { backgroundColor: theme.surface, borderColor: theme.border },
                 {
                   transform: [
                     { translateX: cardPan.x },
@@ -512,7 +517,7 @@ const NearestMosquesScreen = ({ navigation }) => {
             >
               <View style={styles.infoHeader}>
                 <MaterialCommunityIcons name="mosque" size={24} color="#14b8a6" />
-                <Text style={styles.infoTitle} numberOfLines={1}>
+                <Text style={[styles.infoTitle, { color: theme.text }]} numberOfLines={1}>
                   {selectedMosque.name}
                 </Text>
                 <TouchableOpacity
@@ -524,20 +529,20 @@ const NearestMosquesScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.infoAddress} numberOfLines={2}>
+              <Text style={[styles.infoAddress, { color: theme.textMuted }]} numberOfLines={2}>
                 {selectedMosque.address}
               </Text>
 
               <View style={styles.infoMetaRow}>
-                <Text style={styles.infoMetaText}>Mesafe: {selectedMosque.distance} km</Text>
+                <Text style={[styles.infoMetaText, { color: theme.textMuted }]}>{t('mosques.distance')}: {selectedMosque.distance} km</Text>
                 {selectedMosque.open !== null && (
-                  <Text style={styles.infoMetaText}>
-                    {selectedMosque.open ? 'Açık' : 'Kapalı'}
+                  <Text style={[styles.infoMetaText, { color: theme.textMuted }]}>
+                    {selectedMosque.open ? t('mosques.open') : t('mosques.closed')}
                   </Text>
                 )}
                 {selectedMosque.rating > 0 && (
-                  <Text style={styles.infoMetaText}>
-                    Puan: {selectedMosque.rating}
+                  <Text style={[styles.infoMetaText, { color: theme.textMuted }]}>
+                    {t('mosques.rating')}: {selectedMosque.rating}
                   </Text>
                 )}
               </View>
@@ -548,7 +553,7 @@ const NearestMosquesScreen = ({ navigation }) => {
                 activeOpacity={0.85}
               >
                 <Ionicons name="navigate" size={18} color="#fff" />
-                <Text style={styles.infoDirectionButtonText}>Yol Tarifi Al</Text>
+                <Text style={styles.infoDirectionButtonText}>{t('mosques.directions')}</Text>
               </TouchableOpacity>
             </Animated.View>
           )}
@@ -563,8 +568,8 @@ const NearestMosquesScreen = ({ navigation }) => {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="mosque" size={80} color="#ccc" />
-              <Text style={styles.emptyText}>Yakında cami bulunamadı</Text>
-              <Text style={styles.emptySubtext}>Farklı bir bölgeye gidin</Text>
+              <Text style={[styles.emptyText, { color: theme.text }]}>{t('mosques.emptyTitle')}</Text>
+              <Text style={[styles.emptySubtext, { color: theme.textMuted }]}>{t('mosques.emptyDesc')}</Text>
             </View>
           }
         />
@@ -577,7 +582,7 @@ const NearestMosquesScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,

@@ -3,6 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 const TESBIH_STORAGE_KEY = 'tesbih_data_v1';
 const TARGET_OPTIONS = [33, 99, 500, 'infinite'];
@@ -16,6 +18,8 @@ const createInitialCounts = () => {
 };
 
 export default function TesbihScreen({ navigation }) {
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   const [target, setTarget] = useState(33);
   const [countsByTarget, setCountsByTarget] = useState(createInitialCounts);
 
@@ -150,9 +154,9 @@ export default function TesbihScreen({ navigation }) {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={styles.backgroundOverlay}>
+      <View style={[styles.backgroundOverlay, theme.darkMode && { backgroundColor: 'rgba(8, 16, 15, 0.62)' }]}>
         <LinearGradient
-          colors={['#00897B', '#26A69A', '#4DB6AC']}
+          colors={theme.headerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.header}
@@ -160,7 +164,7 @@ export default function TesbihScreen({ navigation }) {
           <TouchableOpacity onPress={() => navigation?.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Zikirmatik</Text>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.tesbih')}</Text>
           <View style={{ width: 24 }} />
         </LinearGradient>
 

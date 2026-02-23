@@ -1,7 +1,10 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useAppearance } from '../context/AppearanceContext';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 import { LocationContext } from '../context/LocationContext';
 import {
   cancelImportantDayNotifications,
@@ -16,8 +19,8 @@ import {
 import { getPrayerTimes, getPrayerTimesByCity } from '../services/prayerTimesAPI';
 
 
-import * as Notifications from 'expo-notifications'; // ← YENİ
-import { addTestNotification } from '../services/Notificationrenewalhelper'; // ← YENİ
+import * as Notifications from 'expo-notifications';
+import { addTestNotification } from '../services/Notificationrenewalhelper';
 
 const LOCATION_STORAGE_KEYS = {
   USE_MANUAL: 'use_manual_location',
@@ -51,8 +54,9 @@ export default function SettingsScreen({ navigation }) {
   const [vibration, setVibration] = useState(true);
   
   // Görünüm Ayarları
-  const [darkMode, setDarkMode] = useState(false);
-  const [backgroundTheme, setBackgroundTheme] = useState('default');
+  const { darkMode, setDarkMode, backgroundTheme, setBackgroundTheme } = useAppearance();
+  const { language, setLanguage, t, languages, getLanguageByCode } = useLocalization();
+  const theme = useAppTheme();
   
   // Konum
   const [selectedCity, setSelectedCity] = useState('Ankara');
@@ -67,15 +71,13 @@ export default function SettingsScreen({ navigation }) {
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const [selectedProvinceOption, setSelectedProvinceOption] = useState(null);
   const [selectedDistrictOption, setSelectedDistrictOption] = useState(null);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
   
-  // Dil
-  const [selectedLanguage] = useState('Türkçe');
-
-  // ✅ YENİ: Favori sayısı
+  // Favori sayısı
   const [favoritesCount, setFavoritesCount] = useState(0);
   const { location, fullLocation, city } = useContext(LocationContext);
 
-  // ✅ YENİ: Favori sayısını yenile
+  // Favori sayısını yenile
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadFavoritesCount();
@@ -156,7 +158,7 @@ export default function SettingsScreen({ navigation }) {
       return mappedProvinces;
     } catch (error) {
       console.error('İl listesi alınamadı:', error);
-      Alert.alert('Hata', 'İl listesi yüklenemedi.');
+      Alert.alert(t('common.error'), t('settings.provincesLoadError'));
       setProvinces([]);
       return [];
     } finally {
@@ -199,7 +201,7 @@ export default function SettingsScreen({ navigation }) {
       return mappedDistricts;
     } catch (error) {
       console.error('İlçe listesi alınamadı:', error);
-      Alert.alert('Hata', 'İlçe listesi yüklenemedi.');
+      Alert.alert(t('common.error'), t('settings.districtsLoadError'));
       setDistricts([]);
       return [];
     } finally {
@@ -242,7 +244,7 @@ export default function SettingsScreen({ navigation }) {
 
   const handleDistrictSelectFromList = async (district) => {
     if (!selectedProvinceOption?.name) {
-      Alert.alert('Bilgi', 'Önce il seçiniz.');
+      Alert.alert(t('common.info'), t('settings.selectProvinceFirst'));
       return;
     }
 
@@ -258,10 +260,10 @@ export default function SettingsScreen({ navigation }) {
       setLocationModalVisible(false);
       setLocationModalStep('province');
       setLocationSearch('');
-      Alert.alert('Başarılı', 'Konum ayarı kaydedildi. Ana sayfa bu konuma göre güncellenecek.');
+      Alert.alert(t('common.success'), t('settings.locationSaved'));
     } catch (error) {
       console.error('Konum kaydetme hatası:', error);
-      Alert.alert('Hata', 'Konum ayarı kaydedilemedi.');
+      Alert.alert(t('common.error'), t('settings.locationSaveError'));
     }
   };
 
@@ -275,14 +277,14 @@ export default function SettingsScreen({ navigation }) {
       setIsManualLocation(false);
       setSelectedCity(parsed.city || city || 'Ankara');
       setSelectedDistrict(parsed.district || 'Merkez');
-      Alert.alert('Başarılı', 'Anlık konuma geri dönüldü.');
+      Alert.alert(t('common.success'), t('settings.locationResetSuccess'));
     } catch (error) {
       console.error('Anlık konuma dönüş hatası:', error);
-      Alert.alert('Hata', 'Anlık konuma dönülemedi.');
+      Alert.alert(t('common.error'), t('settings.locationResetError'));
     }
   };
 
-  // ✅ YENİ: Favori sayısını yükle
+  // Favori sayısını yükle
   const loadFavoritesCount = async () => {
     try {
       const favorites = await AsyncStorage.getItem('favorites');
@@ -298,7 +300,7 @@ export default function SettingsScreen({ navigation }) {
     }
   };
 
-  // ✅ YENİ FONKSİYON EKLE (diğer handler'ların yanına)
+  // Test ve debug fonksiyonları
 
 // Test bildirimi gönder
 const handleTestNotification = async () => {
@@ -306,15 +308,15 @@ const handleTestNotification = async () => {
     // 1. İzin kontrol
     const hasPermission = await requestNotificationPermission();
     if (!hasPermission) {
-      Alert.alert('Hata', 'Bildirim izni verilmedi');
+      Alert.alert(t('common.error'), t('settings.notificationPermissionDenied'));
       return;
     }
 
     // 2. Test bildirimi planla (5 saniye sonra)
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: '🕌 Test Bildirimi',
-        body: 'Bu bir test bildirimidir. Bildirimler çalışıyor! ✅',
+        title: `🕌 ${t('settings.testNotificationTitle')}`,
+        body: `${t('settings.testNotificationBody')} ✅`,
         sound: true,
         data: { type: 'test' },
       },
@@ -327,15 +329,15 @@ const handleTestNotification = async () => {
     await addTestNotification();
 
     Alert.alert(
-      'Başarılı',
-      'Test bildirimi 5 saniye sonra gelecek. Uygulamayı arka plana alın ve bekleyin.',
-      [{ text: 'Tamam' }]
+      t('common.success'),
+      t('settings.testNotificationScheduled'),
+      [{ text: t('common.ok') }]
     );
 
     console.log('✅ Test bildirimi planlandı');
   } catch (error) {
     console.error('❌ Test bildirimi hatası:', error);
-    Alert.alert('Hata', 'Test bildirimi gönderilemedi');
+    Alert.alert(t('common.error'), t('settings.testNotificationError'));
   }
 };
 
@@ -346,9 +348,9 @@ const handleShowScheduledNotifications = async () => {
     
     if (scheduled.length === 0) {
       Alert.alert(
-        'Bilgi',
-        'Hiç planlanmış bildirim yok. Lütfen namaz vakti bildirimlerini aktif edin.',
-        [{ text: 'Tamam' }]
+        t('common.info'),
+        t('settings.noScheduledNotifications'),
+        [{ text: t('common.ok') }]
       );
       return;
     }
@@ -365,15 +367,15 @@ const handleShowScheduledNotifications = async () => {
       .join('\n');
 
     Alert.alert(
-      `📊 Planlanan Bildirimler (${scheduled.length})`,
+      `📊 ${t('settings.scheduledNotificationsTitle')} (${scheduled.length})`,
       message,
-      [{ text: 'Tamam' }]
+      [{ text: t('common.ok') }]
     );
 
     console.log('📋 Planlanan bildirimler:', scheduled);
   } catch (error) {
     console.error('❌ Listeleme hatası:', error);
-    Alert.alert('Hata', 'Bildirimler listelenemedi');
+    Alert.alert(t('common.error'), t('settings.scheduledNotificationsError'));
   }
 };
 
@@ -403,7 +405,7 @@ const handleShowScheduledNotifications = async () => {
         if (!times) {
           setPrayerNotifications(false);
           await saveSettings(false);
-          Alert.alert('Konum Gerekli', 'Namaz vakti bildirimi için önce konum izni veriniz.');
+          Alert.alert(t('settings.prayerNotificationNeedLocationTitle'), t('settings.prayerNotificationNeedLocation'));
           return;
         }
 
@@ -411,20 +413,20 @@ const handleShowScheduledNotifications = async () => {
         if (!scheduled) {
           setPrayerNotifications(false);
           await saveSettings(false);
-          Alert.alert('Bilgi', 'Namaz vakti bildirimleri planlanamadı.');
+          Alert.alert(t('common.info'), t('settings.prayerNotificationScheduleFailed'));
           return;
         }
 
-        Alert.alert('Başarılı', 'Namaz vakti bildirimleri aktif edildi.');
+        Alert.alert(t('common.success'), t('settings.prayerNotificationOn'));
         return;
       }
 
       await cancelPrayerNotifications();
       await saveSettings(false);
-      Alert.alert('Başarılı', 'Namaz vakti bildirimleri kapatıldı.');
+      Alert.alert(t('common.success'), t('settings.prayerNotificationOff'));
     } catch (error) {
       console.error('Namaz bildirimi ayar hatası:', error);
-      Alert.alert('Hata', 'Namaz bildirimi ayarı güncellenemedi.');
+      Alert.alert(t('common.error'), t('settings.prayerNotificationUpdateError'));
     }
   };
 
@@ -463,7 +465,7 @@ const handleShowScheduledNotifications = async () => {
       }
     } catch (error) {
       console.error('Ses ayarı güncellenemedi:', error);
-      Alert.alert('Hata', 'Ezan sesi ayarı güncellenemedi.');
+      Alert.alert(t('common.error'), t('settings.adhanSoundUpdateError'));
     }
   };
 
@@ -485,7 +487,7 @@ const handleShowScheduledNotifications = async () => {
       }
     } catch (error) {
       console.error('Titreşim ayarı güncellenemedi:', error);
-      Alert.alert('Hata', 'Titreşim ayarı güncellenemedi.');
+      Alert.alert(t('common.error'), t('settings.vibrationUpdateError'));
     }
   };
 
@@ -504,16 +506,16 @@ const handleShowScheduledNotifications = async () => {
 
         await AsyncStorage.setItem('important_days_notifications_enabled', 'true');
         await scheduleImportantDayNotificationsForYear(new Date().getFullYear());
-        Alert.alert('Başarılı', 'Önemli gün bildirimleri aktif edildi.');
+        Alert.alert(t('common.success'), t('settings.importantDaysOn'));
         return;
       }
 
       await AsyncStorage.setItem('important_days_notifications_enabled', 'false');
       await cancelImportantDayNotifications();
-      Alert.alert('Başarılı', 'Önemli gün bildirimleri kapatıldı.');
+      Alert.alert(t('common.success'), t('settings.importantDaysOff'));
     } catch (error) {
       console.error('Önemli gün ayarı güncellenemedi:', error);
-      Alert.alert('Hata', 'Önemli gün bildirim ayarı güncellenemedi.');
+      Alert.alert(t('common.error'), t('settings.importantDaysUpdateError'));
     }
   };
 
@@ -526,51 +528,53 @@ const handleShowScheduledNotifications = async () => {
   };
 
   const handleLanguageChange = () => {
-    Alert.alert(
-      'Dil Seçimi',
-      'Dil değiştirme özelliği yakında eklenecek.\n\nMevcut Dil: Türkçe',
-      [{ text: 'Tamam' }]
-    );
+    setLanguageModalVisible(true);
+  };
+
+  const handleLanguageSelect = async (code) => {
+    await setLanguage(code);
+    setLanguageModalVisible(false);
+    Alert.alert(t('common.success'), t('settings.languageUpdated'));
   };
 
   const handleBackgroundChange = () => {
     Alert.alert(
-      'Arkaplan Değiştir',
-      'Hangi arkaplanı seçmek istersiniz?',
+      t('settings.backgroundTheme'),
+      '',
       [
-        { text: 'Varsayılan', onPress: () => setBackgroundTheme('default') },
-        { text: 'İslami Motif', onPress: () => setBackgroundTheme('pattern') },
-        { text: 'Gradient', onPress: () => setBackgroundTheme('gradient') },
-        { text: 'İptal', style: 'cancel' }
+        { text: t('settings.themeDefault'), onPress: () => setBackgroundTheme('default') },
+        { text: t('settings.themePattern'), onPress: () => setBackgroundTheme('pattern') },
+        { text: t('settings.themeGradient'), onPress: () => setBackgroundTheme('gradient') },
+        { text: t('common.cancel'), style: 'cancel' },
       ]
     );
   };
 
   const notificationSettings = [
-    {
+      {
       icon: '🔔',
-      label: 'Namaz Vakti Bildirimleri',
-      description: 'Namaz vakti girdiğinde bildirim al',
+      label: t('settings.sectionNotifications'),
+      description: t('settings.prayerNotificationOn'),
       value: prayerNotifications,
       onToggle: handleNotificationToggle,
     },
     {
       icon: '📅',
-      label: 'Önemli Günler Hatırlatması',
+      label: t('settings.importantDaysOn'),
       description: 'Kandil ve bayramlardan 1 gün önce hatırlatma',
       value: importantDaysNotifications,
       onToggle: handleImportantDaysToggle,
     },
     {
       icon: '🔊',
-      label: 'Ezan Sesi',
+      label: t('settings.adhanLabel'),
       description: 'Vakit girdiğinde ezan sesi çal',
       value: notificationSound,
       onToggle: handleSoundToggle,
     },
     {
       icon: '📳',
-      label: 'Titreşim',
+      label: t('settings.vibrationLabel'),
       description: 'Bildirimde telefonu titret',
       value: vibration,
       onToggle: handleVibrationToggle,
@@ -580,8 +584,8 @@ const handleShowScheduledNotifications = async () => {
   const appearanceSettings = [
     {
       icon: '🌙',
-      label: 'Karanlık Mod',
-      description: 'Gece modunu aktif et',
+      label: t('settings.darkMode'),
+      description: t('settings.darkModeDescription'),
       value: darkMode,
       onToggle: setDarkMode,
     },
@@ -590,13 +594,13 @@ const handleShowScheduledNotifications = async () => {
   const locationSettings = [
     {
       icon: '🏙️',
-      label: 'İl',
+      label: t('settings.city'),
       value: selectedCity,
       action: handleCityChange,
     },
     {
       icon: '📍',
-      label: 'İlçe',
+      label: t('settings.district'),
       value: selectedDistrict,
       action: handleDistrictChange,
     },
@@ -611,79 +615,67 @@ const handleShowScheduledNotifications = async () => {
 
   const generalSettings = [
     {
-      icon: '🌍',
-      label: 'Dil',
-      value: selectedLanguage,
-      action: handleLanguageChange,
-    },
-    {
-      icon: '🎨',
-      label: 'Arkaplan Teması',
-      value: backgroundTheme === 'default' ? 'Varsayılan' : backgroundTheme === 'pattern' ? 'İslami Motif' : 'Gradient',
-      action: handleBackgroundChange,
-    },
-    {
-      icon: '🕌',
-      label: 'Hesaplama Yöntemi',
+      icon: '🕰️',
+      label: t('settings.calculationMethod'),
       value: 'Diyanet',
-      action: () => Alert.alert('Yakında', 'Hesaplama yöntemi seçimi yakında eklenecek'),
+      action: () => Alert.alert(t('common.soon'), t('settings.calcMethodSoon')),
     },
   ];
 
   const supportItems = [
     {
       icon: '📖',
-      label: 'Kullanım Kılavuzu',
-      action: () => Alert.alert('Kullanım Kılavuzu', 'Uygulama kullanım kılavuzu yakında hazırlanacak'),
+      label: t('settings.guideTitle'),
+      action: () => Alert.alert(t('settings.guideTitle'), t('settings.guideSoon')),
     },
     {
       icon: '❓',
-      label: 'Sıkça Sorulan Sorular',
-      action: () => Alert.alert('SSS', 'Sıkça sorulan sorular bölümü yakında eklenecek'),
+      label: t('settings.faqTitle'),
+      action: () => Alert.alert(t('settings.faqTitle'), t('settings.faqSoon')),
     },
     {
       icon: '💬',
-      label: 'Geri Bildirim',
-      action: () => Alert.alert('Geri Bildirim', 'Öneri ve şikayetleriniz için: iletisim@islamiuygulama.com'),
+      label: t('settings.feedbackTitle'),
+      action: () => Alert.alert(t('settings.feedbackTitle'), t('settings.feedbackBody')),
     },
     {
       icon: '⭐',
-      label: 'Uygulamayı Değerlendir',
-      action: () => Alert.alert('Teşekkürler!', 'Değerlendirmeniz bizim için çok önemli'),
+      label: t('settings.rateThanksTitle'),
+      action: () => Alert.alert(t('settings.rateThanksTitle'), t('settings.rateThanksBody')),
     },
     {
       icon: 'ℹ️',
-      label: 'Hakkında',
+      label: t('settings.aboutTitle'),
       action: () => Alert.alert(
-        'İslami Hayat',
+        'Vakitçim',
         'Versiyon: 1.0.0\n\n© 2026 Tüm hakları saklıdır.\n\nBu uygulama, Müslümanların günlük ibadetlerini kolaylaştırmak için geliştirilmiştir.\n\nÖzellikler:\n• Namaz vakitleri\n• Kıble pusulası\n• Günlük dua ve hadisler\n• Tesbih\n• Yakın camiler\n• Ve daha fazlası...'
       ),
     },
-    // ✅ YENİ: Test butonu
+    // Test butonu
     {
       icon: '🔔',
-      label: 'Test Bildirimi Gönder',
+      label: t('settings.testNotificationTitle'),
       action: handleTestNotification,
     },
-    // ✅ YENİ: Planlanan bildirimleri göster
+    // Planlanan bildirimleri göster
     {
       icon: '📊',
-      label: 'Planlanan Bildirimleri Gör',
+      label: t('settings.scheduledNotificationsTitle'),
       action: handleShowScheduledNotifications,
     },
     
     {
       icon: 'ℹ️',
-      label: 'Hakkında',
+      label: t('settings.aboutTitle'),
       action: () => Alert.alert(/* ... */),
     },
   ];
 
   return (
-    <View style={styles.container}>
-      <LinearGradient colors={['#00695C', '#00897B']} style={styles.header}>
-        <Text style={styles.headerTitle}>⚙️ Ayarlar</Text>
-        <Text style={styles.headerSubtitle}>Uygulamanızı kişiselleştirin</Text>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <LinearGradient colors={theme.headerGradient} style={styles.header}>
+        <Text style={styles.headerTitle}>⚙️ {t('settings.title')}</Text>
+        <Text style={[styles.headerSubtitle, { opacity: theme.darkMode ? 0.95 : 0.9 }]}>{t('settings.subtitle')}</Text>
       </LinearGradient>
 
       <ScrollView 
@@ -691,13 +683,13 @@ const handleShowScheduledNotifications = async () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ✅ YENİ: Favoriler Bölümü */}
+        {/* Favoriler Bölümü */}
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>❤️</Text>
-            <Text style={styles.sectionTitle}>Favoriler</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionFavorites')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <TouchableOpacity
               style={styles.menuItem}
               activeOpacity={0.7}
@@ -708,10 +700,10 @@ const handleShowScheduledNotifications = async () => {
                   <Text style={styles.settingIcon}>❤️</Text>
                 </View>
                 <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Favorilerim</Text>
-                  <Text style={styles.settingDescription}>
-                    Kaydettiğiniz dua ve hadisler
-                  </Text>
+                      <Text style={[styles.settingLabel, { color: theme.text }]}>{t('favorites.title')}</Text>
+                      <Text style={[styles.settingDescription, { color: theme.textMuted }]}>
+                        {t('settings.favoriteSaved')}
+                      </Text>
                 </View>
               </View>
               <View style={styles.menuRight}>
@@ -720,7 +712,7 @@ const handleShowScheduledNotifications = async () => {
                     <Text style={styles.favoriteBadgeText}>{favoritesCount}</Text>
                   </View>
                 )}
-                <Text style={styles.chevron}>›</Text>
+                <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -730,9 +722,9 @@ const handleShowScheduledNotifications = async () => {
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>🔔</Text>
-            <Text style={styles.sectionTitle}>Bildirim Ayarları</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionNotifications')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {notificationSettings.map((item, index) => (
               <View
                 key={index}
@@ -746,15 +738,15 @@ const handleShowScheduledNotifications = async () => {
                     <Text style={styles.settingIcon}>{item.icon}</Text>
                   </View>
                   <View style={styles.settingTextContainer}>
-                    <Text style={styles.settingLabel}>{item.label}</Text>
-                    <Text style={styles.settingDescription}>{item.description}</Text>
+                    <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
+                    <Text style={[styles.settingDescription, { color: theme.textMuted }]}>{item.description}</Text>
                   </View>
                 </View>
                 <Switch
                   value={item.value}
                   onValueChange={item.onToggle}
-                  trackColor={{ false: '#D0D0D0', true: '#4CAF50' }}
-                  thumbColor={item.value ? '#FFFFFF' : '#F5F5F5'}
+                  trackColor={{ false: theme.switchTrackOff, true: theme.success }}
+                  thumbColor={item.value ? theme.switchThumbOn : theme.switchThumbOff}
                 />
               </View>
             ))}
@@ -765,9 +757,9 @@ const handleShowScheduledNotifications = async () => {
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>📍</Text>
-            <Text style={styles.sectionTitle}>Konum Ayarları</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionLocation')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {locationSettings.map((item, index) => (
               <TouchableOpacity
                 key={index}
@@ -782,11 +774,11 @@ const handleShowScheduledNotifications = async () => {
                   <View style={styles.settingIconContainer}>
                     <Text style={styles.settingIcon}>{item.icon}</Text>
                   </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
                 </View>
                 <View style={styles.menuRight}>
-                  <Text style={styles.valueText}>{item.value}</Text>
-                  <Text style={styles.chevron}>›</Text>
+                  <Text style={[styles.valueText, { color: theme.textMuted }]}>{item.value}</Text>
+                  <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -796,14 +788,14 @@ const handleShowScheduledNotifications = async () => {
                   <Text style={styles.settingIcon}>🧭</Text>
                 </View>
                 <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Konum Kaynağı</Text>
-                  <Text style={styles.settingDescription}>
-                    {isManualLocation ? 'Manuel seçim kullanılıyor' : 'Anlık konum kullanılıyor'}
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>{t('settings.locationSource')}</Text>
+                  <Text style={[styles.settingDescription, { color: theme.textMuted }]}>
+                    {isManualLocation ? t('settings.locationManual') : t('settings.locationAuto')}
                   </Text>
                 </View>
               </View>
               <View style={styles.themeBadge}>
-                <Text style={styles.themeBadgeText}>{isManualLocation ? 'Manuel' : 'Otomatik'}</Text>
+                <Text style={styles.themeBadgeText}>{isManualLocation ? t('settings.locationManualBadge') : t('settings.locationAutoBadge')}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={useCurrentLocation}>
@@ -812,11 +804,11 @@ const handleShowScheduledNotifications = async () => {
                   <Text style={styles.settingIcon}>📡</Text>
                 </View>
                 <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Anlık Konumu Kullan</Text>
-                  <Text style={styles.settingDescription}>Manuel seçimi kapat ve GPS konumuna dön</Text>
-                </View>
+                <Text style={[styles.settingLabel, { color: theme.text }]}>{t('settings.useCurrentLocation')}</Text>
+                <Text style={[styles.settingDescription, { color: theme.textMuted }]}>{t('settings.useCurrentLocationDesc')}</Text>
               </View>
-              <Text style={styles.chevron}>›</Text>
+            </View>
+              <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -825,9 +817,9 @@ const handleShowScheduledNotifications = async () => {
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>🎨</Text>
-            <Text style={styles.sectionTitle}>Görünüm Ayarları</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionAppearance')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {appearanceSettings.map((item, index) => (
               <View
                 key={index}
@@ -841,15 +833,15 @@ const handleShowScheduledNotifications = async () => {
                     <Text style={styles.settingIcon}>{item.icon}</Text>
                   </View>
                   <View style={styles.settingTextContainer}>
-                    <Text style={styles.settingLabel}>{item.label}</Text>
-                    <Text style={styles.settingDescription}>{item.description}</Text>
+                    <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
+                    <Text style={[styles.settingDescription, { color: theme.textMuted }]}>{item.description}</Text>
                   </View>
                 </View>
                 <Switch
                   value={item.value}
                   onValueChange={item.onToggle}
-                  trackColor={{ false: '#D0D0D0', true: '#4CAF50' }}
-                  thumbColor={item.value ? '#FFFFFF' : '#F5F5F5'}
+                  trackColor={{ false: theme.switchTrackOff, true: theme.success }}
+                  thumbColor={item.value ? theme.switchThumbOn : theme.switchThumbOff}
                 />
               </View>
             ))}
@@ -863,17 +855,17 @@ const handleShowScheduledNotifications = async () => {
                   <Text style={styles.settingIcon}>🖼️</Text>
                 </View>
                 <View style={styles.settingTextContainer}>
-                  <Text style={styles.settingLabel}>Arkaplan Teması</Text>
-                  <Text style={styles.settingDescription}>Uygulamanın arkaplanını değiştir</Text>
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>{t('settings.backgroundTheme')}</Text>
+                  <Text style={[styles.settingDescription, { color: theme.textMuted }]}>{t('settings.backgroundThemeDescription')}</Text>
                 </View>
               </View>
               <View style={styles.menuRight}>
                 <View style={styles.themeBadge}>
                   <Text style={styles.themeBadgeText}>
-                    {backgroundTheme === 'default' ? 'Varsayılan' : backgroundTheme === 'pattern' ? 'Motif' : 'Gradient'}
+                    {backgroundTheme === 'default' ? t('settings.themeDefault') : backgroundTheme === 'pattern' ? t('settings.themePattern') : t('settings.themeGradient')}
                   </Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
               </View>
             </TouchableOpacity>
           </View>
@@ -883,9 +875,9 @@ const handleShowScheduledNotifications = async () => {
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>⚙️</Text>
-            <Text style={styles.sectionTitle}>Genel Ayarlar</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionGeneral')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {generalSettings.map((item, index) => (
               <TouchableOpacity
                 key={index}
@@ -900,11 +892,11 @@ const handleShowScheduledNotifications = async () => {
                   <View style={styles.settingIconContainer}>
                     <Text style={styles.settingIcon}>{item.icon}</Text>
                   </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
                 </View>
                 <View style={styles.menuRight}>
-                  <Text style={styles.valueText}>{item.value}</Text>
-                  <Text style={styles.chevron}>›</Text>
+                  <Text style={[styles.valueText, { color: theme.textMuted }]}>{item.value}</Text>
+                  <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -915,9 +907,9 @@ const handleShowScheduledNotifications = async () => {
         <View style={styles.section}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>💡</Text>
-            <Text style={styles.sectionTitle}>Destek & Yardım</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionSupport')}</Text>
           </View>
-          <View style={styles.card}>
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {supportItems.map((item, index) => (
               <TouchableOpacity
                 key={index}
@@ -932,9 +924,9 @@ const handleShowScheduledNotifications = async () => {
                   <View style={styles.settingIconContainer}>
                     <Text style={styles.settingIcon}>{item.icon}</Text>
                   </View>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  <Text style={[styles.settingLabel, { color: theme.text }]}>{item.label}</Text>
                 </View>
-                <Text style={styles.chevron}>›</Text>
+                <Text style={[styles.chevron, { color: theme.textMuted }]}>›</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -942,8 +934,8 @@ const handleShowScheduledNotifications = async () => {
 
         {/* App Info */}
         <View style={styles.appInfo}>
-          <Text style={styles.appInfoText}>İslami Hayat v1.0.0</Text>
-          <Text style={styles.appInfoSubtext}>© 2026 Tüm hakları saklıdır</Text>
+          <Text style={[styles.appInfoText, { color: theme.textMuted }]}>Vakitçim v1.0.0</Text>
+          <Text style={[styles.appInfoSubtext, { color: theme.textMuted }]}>© 2026 Tüm hakları saklıdır</Text>
         </View>
 
         <View style={{ height: 100 }} />
@@ -960,7 +952,7 @@ const handleShowScheduledNotifications = async () => {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.modalHeaderRow}>
               {locationModalStep === 'district' ? (
                 <TouchableOpacity
@@ -975,10 +967,10 @@ const handleShowScheduledNotifications = async () => {
               ) : (
                 <View style={styles.modalBackPlaceholder} />
               )}
-              <Text style={styles.modalTitle}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
                 {locationModalStep === 'district'
-                  ? `${selectedProvinceOption?.name || selectedCity} İlçeleri`
-                  : 'İl Seçin'}
+                  ? t('settings.locationModalDistrictTitle', { province: selectedProvinceOption?.name || selectedCity })
+                  : t('settings.locationModalProvinceTitle')}
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -987,17 +979,18 @@ const handleShowScheduledNotifications = async () => {
                   setLocationSearch('');
                 }}
               >
-                <Text style={styles.modalCloseButtonText}>✕</Text>
+                <Text style={[styles.modalCloseButtonText, { color: theme.textMuted }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalSearchBox}>
               <TextInput
                 style={styles.modalInput}
-                placeholder={locationModalStep === 'district' ? 'İlçe ara...' : 'İl ara...'}
+                placeholder={locationModalStep === 'district' ? t('settings.searchDistrictPlaceholder') : t('settings.searchProvincePlaceholder')}
                 value={locationSearch}
                 onChangeText={setLocationSearch}
                 autoCapitalize="words"
+                placeholderTextColor={theme.textMuted}
               />
             </View>
 
@@ -1007,7 +1000,7 @@ const handleShowScheduledNotifications = async () => {
                   {loadingProvinces ? (
                     <View style={styles.modalLoadingWrap}>
                       <ActivityIndicator size="small" color="#00897B" />
-                      <Text style={styles.modalLoadingText}>İller yükleniyor...</Text>
+                      <Text style={[styles.modalLoadingText, { color: theme.textMuted }]}>{t('settings.loadingProvinces')}</Text>
                     </View>
                   ) : (
                     <>
@@ -1017,13 +1010,13 @@ const handleShowScheduledNotifications = async () => {
                           style={styles.modalItem}
                           onPress={() => handleProvinceSelectFromList(province)}
                         >
-                          <Text style={styles.modalItemText}>{province.name}</Text>
+                          <Text style={[styles.modalItemText, { color: theme.text }]}>{province.name}</Text>
                           {(selectedCity === province.name || selectedProvinceOption?.id === province.id) && (
                             <Text style={styles.modalItemCheck}>✓</Text>
                           )}
                         </TouchableOpacity>
                       ))}
-                      {!filteredProvinces.length && <Text style={styles.noResultText}>İl bulunamadı</Text>}
+                      {!filteredProvinces.length && <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('settings.provinceNotFound')}</Text>}
                     </>
                   )}
                 </>
@@ -1032,7 +1025,7 @@ const handleShowScheduledNotifications = async () => {
                   {loadingDistricts ? (
                     <View style={styles.modalLoadingWrap}>
                       <ActivityIndicator size="small" color="#00897B" />
-                      <Text style={styles.modalLoadingText}>İlçeler yükleniyor...</Text>
+                      <Text style={[styles.modalLoadingText, { color: theme.textMuted }]}>{t('settings.loadingDistricts')}</Text>
                     </View>
                   ) : (
                     <>
@@ -1042,17 +1035,59 @@ const handleShowScheduledNotifications = async () => {
                           style={styles.modalItem}
                           onPress={() => handleDistrictSelectFromList(district)}
                         >
-                          <Text style={styles.modalItemText}>{district.name}</Text>
+                          <Text style={[styles.modalItemText, { color: theme.text }]}>{district.name}</Text>
                           {(selectedDistrict === district.name || selectedDistrictOption?.id === district.id) && (
                             <Text style={styles.modalItemCheck}>✓</Text>
                           )}
                         </TouchableOpacity>
                       ))}
-                      {!filteredDistricts.length && <Text style={styles.noResultText}>İlçe bulunamadı</Text>}
+                      {!filteredDistricts.length && <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('settings.districtNotFound')}</Text>}
                     </>
                   )}
                 </>
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={languageModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={styles.modalBackPlaceholder} />
+              <Text style={[styles.modalTitle, { color: theme.text }]}>{t('settings.languageModalTitle')}</Text>
+              <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+                <Text style={[styles.modalCloseButtonText, { color: theme.textMuted }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalList}>
+              {languages.map((lang) => {
+                const selected = lang.code === language;
+                return (
+                  <TouchableOpacity
+                    key={lang.code}
+                    style={[styles.modalItem, selected && styles.modalItemSelected]}
+                    onPress={() => handleLanguageSelect(lang.code)}
+                  >
+                    <View>
+                      <Text style={[styles.modalItemText, { color: theme.text }]}>
+                        {lang.nativeLabel}
+                      </Text>
+                      <Text style={[styles.modalLoadingText, { color: theme.textMuted }]}>
+                        {lang.label} ({lang.code.toUpperCase()})
+                      </Text>
+                    </View>
+                    {selected && <Text style={styles.modalItemCheck}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
         </View>
@@ -1064,7 +1099,7 @@ const handleShowScheduledNotifications = async () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: 60,
@@ -1187,7 +1222,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#00897B',
   },
-  // ✅ YENİ: Favori badge stili
+  // Favori badge stili
   favoriteBadge: {
     backgroundColor: '#FF4081',
     paddingHorizontal: 8,
@@ -1303,6 +1338,11 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
     paddingVertical: 12,
   },
+  modalItemSelected: {
+    backgroundColor: '#E0F2F1',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+  },
   modalItemText: {
     fontSize: 15,
     color: '#333',
@@ -1320,3 +1360,5 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 });
+
+

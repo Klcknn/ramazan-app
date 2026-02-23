@@ -1,20 +1,24 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
+  const theme = useAppTheme();
+  const { t } = useLocalization();
 
-  // Bildirimleri yukle
   const markAllAsRead = useCallback(async () => {
     try {
       const stored = await AsyncStorage.getItem('app_notifications');
@@ -24,7 +28,7 @@ export default function NotificationsScreen({ navigation }) {
       const updatedNotifs = notifs.map((n) => ({ ...n, read: true }));
       await AsyncStorage.setItem('app_notifications', JSON.stringify(updatedNotifs));
     } catch (error) {
-      console.error('[NotificationsScreen] markAllAsRead hatasi:', error);
+      console.error('[NotificationsScreen] markAllAsRead hatası:', error);
     }
   }, []);
 
@@ -41,7 +45,7 @@ export default function NotificationsScreen({ navigation }) {
         setNotifications([]);
       }
     } catch (error) {
-      console.error('[NotificationsScreen] Yukleme hatasi:', error);
+      console.error('[NotificationsScreen] Yükleme hatası:', error);
     }
   }, [markAllAsRead]);
 
@@ -49,10 +53,9 @@ export default function NotificationsScreen({ navigation }) {
     loadNotifications();
   }, [loadNotifications]);
 
-  // Tek bildirimi sil
   const deleteNotification = async (id) => {
     try {
-      const updated = notifications.filter(n => n.id !== id);
+      const updated = notifications.filter((n) => n.id !== id);
       setNotifications(updated);
       await AsyncStorage.setItem('app_notifications', JSON.stringify(updated));
     } catch (error) {
@@ -60,7 +63,6 @@ export default function NotificationsScreen({ navigation }) {
     }
   };
 
-  // Tüm bildirimleri sil
   const clearAllNotifications = () => {
     Alert.alert(
       'Tüm Bildirimleri Sil',
@@ -77,13 +79,12 @@ export default function NotificationsScreen({ navigation }) {
             } catch (error) {
               console.error('Bildirimler silinirken hata:', error);
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
-  // Zaman formatı
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -97,93 +98,99 @@ export default function NotificationsScreen({ navigation }) {
     if (hours < 24) return `${hours} saat önce`;
     if (days === 1) return 'Dün';
     if (days < 7) return `${days} gün önce`;
-    
-    return date.toLocaleDateString('tr-TR', { 
-      day: 'numeric', 
+
+    return date.toLocaleDateString('tr-TR', {
+      day: 'numeric',
       month: 'long',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
-  // Bildirim ikonu
   const getNotificationIcon = (type) => {
-    switch(type) {
-      case 'prayer': return '🕌';
-      case 'dua': return '🤲';
-      case 'hadis': return '📖';
-      case 'important_day': return '\u{1F4C5}';
-      case 'main': return '\u{1F4C5}';
-      case 'reminder': return '⏰';
-      default: return '🔔';
+    switch (type) {
+      case 'prayer':
+        return '🕌';
+      case 'dua':
+        return '🤲';
+      case 'hadis':
+        return '📖';
+      case 'important_day':
+      case 'main':
+        return '📅';
+      case 'reminder':
+        return '⏰';
+      default:
+        return '🔔';
     }
   };
 
-  // Bildirim kartı
+  const renderRightActions = (id) => (
+    <TouchableOpacity style={styles.swipeDeleteAction} activeOpacity={0.85} onPress={() => deleteNotification(id)}>
+      <Ionicons name="trash" size={20} color="#fff" />
+      <Text style={styles.swipeDeleteText}>Sil</Text>
+    </TouchableOpacity>
+  );
+
   const renderNotification = ({ item }) => (
-    <View style={[styles.notificationCard, !item.read && styles.unreadCard]}>
-      <View style={styles.notificationHeader}>
-        <View style={styles.notificationIconContainer}>
-          <Text style={styles.notificationIcon}>{getNotificationIcon(item.type)}</Text>
+    <Swipeable overshootRight={false} renderRightActions={() => renderRightActions(item.id)}>
+      <View
+        style={[
+          styles.notificationCard,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+          !item.read && styles.unreadCard,
+          !item.read && { borderColor: theme.accent },
+        ]}
+      >
+        <View style={styles.notificationHeader}>
+          <View style={styles.notificationIconContainer}>
+            <Text style={styles.notificationIcon}>{getNotificationIcon(item.type)}</Text>
+          </View>
+          <View style={styles.notificationContent}>
+            <Text style={[styles.notificationTitle, { color: theme.text }]}>{item.title}</Text>
+            <Text style={[styles.notificationBody, { color: theme.textMuted }]}>{item.body}</Text>
+            <Text style={[styles.notificationTime, { color: theme.textMuted }]}>{formatTime(item.timestamp)}</Text>
+          </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(item.id)}>
+            <Text style={[styles.deleteButtonText, { color: theme.textMuted }]}>×</Text>
+          </TouchableOpacity>
         </View>
-        <View style={styles.notificationContent}>
-          <Text style={styles.notificationTitle}>{item.title}</Text>
-          <Text style={styles.notificationBody}>{item.body}</Text>
-          <Text style={styles.notificationTime}>{formatTime(item.timestamp)}</Text>
-        </View>
-        <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => deleteNotification(item.id)}
-        >
-          <Text style={styles.deleteButtonText}>×</Text>
-        </TouchableOpacity>
       </View>
-    </View>
+    </Swipeable>
   );
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.header}
-      >
+    <View style={[styles.container, { backgroundColor: theme.background }]}> 
+      <LinearGradient colors={theme.headerGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.header}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation?.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Bildirimler</Text>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('notifications.title')}</Text>
           <View style={{ width: 24 }} />
         </View>
-        
+
         {notifications.length > 0 && (
           <View style={styles.headerStats}>
-            <Text style={styles.headerStatsText}>
-              {notifications.length} bildirim
-            </Text>
+            <Text style={styles.headerStatsText}>{notifications.length} bildirim</Text>
             <TouchableOpacity onPress={clearAllNotifications}>
-              <Text style={styles.clearAllText}>Tümünü Sil</Text>
+              <Text style={styles.clearAllText}>{t('notifications.clearAll')}</Text>
             </TouchableOpacity>
           </View>
         )}
       </LinearGradient>
 
-      {/* Bildirim Listesi */}
       {notifications.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>🔔</Text>
-          <Text style={styles.emptyTitle}>Bildirim Yok</Text>
-          <Text style={styles.emptySubtitle}>
-            Henüz hiç bildiriminiz bulunmuyor
-          </Text>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>{t('notifications.noNotifications')}</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t('notifications.noNotificationsDesc')}</Text>
         </View>
       ) : (
         <FlatList
           data={notifications}
           renderItem={renderNotification}
-          keyExtractor={item => item.id}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
         />
@@ -195,7 +202,7 @@ export default function NotificationsScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   header: {
     paddingTop: 50,
@@ -303,6 +310,20 @@ const styles = StyleSheet.create({
     color: '#EF5350',
     fontWeight: '600',
   },
+  swipeDeleteAction: {
+    width: 84,
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: '#E53935',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  swipeDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -325,7 +346,3 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-
-
-

@@ -1,10 +1,13 @@
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+﻿import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createStackNavigator } from '@react-navigation/stack';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import AppBackground from '../../components/AppBackground';
+import { useAppearance } from '../../context/AppearanceContext';
+import { useLocalization } from '../../context/LocalizationContext';
 import { LocationProvider } from '../../context/LocationContext';
 import DuaScreen from '../../screens/DuaScreen';
 import FavoritesScreen from '../../screens/FavoritesScreen';
@@ -18,14 +21,14 @@ import RamadanCalendarScreen from '../../screens/RamadanCalendarScreen';
 import SettingsScreen from '../../screens/SettingsScreen';
 import SplashScreen from '../../screens/SplashScreen';
 import TesbihScreen from '../../screens/TesbihScreen';
-// âœ… Bildirim listener'larÄ±nÄ± import et
+// Bildirim listener'larini import et
 import { removeNotificationListeners, setupNotificationListeners } from '../../services/notificationService';
 
 
 const Tab = createBottomTabNavigator();
 
 /* 
-// Bildirim ayarlarÄ±
+// Bildirim ayarlari
 Notifications.setNotificationHandler({
   handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
     shouldShowBanner: true,
@@ -36,8 +39,8 @@ Notifications.setNotificationHandler({
 }); 
 */
 
-// âœ… Bildirim ayarlarÄ± - Expo Go uyarÄ±sÄ±nÄ± Ã¶nlemek iÃ§in koÅŸullu
-// Yerel bildirimler (local notifications) hala Ã§alÄ±ÅŸÄ±r
+// Bildirim ayarlari - Expo Go uyarisini onlemek icin kosullu
+// Yerel bildirimler (local notifications) hala calisir
 try {
   Notifications.setNotificationHandler({
     handleNotification: async (): Promise<Notifications.NotificationBehavior> => ({
@@ -48,8 +51,8 @@ try {
     }),
   });
 } catch {
-  // Expo Go'da hata vermesini Ã¶nle
-  console.log('Notification handler ayarlanamadÄ± (Expo Go)');
+  // Expo Go'da hata vermesini onle
+  console.log('Notification handler ayarlanamadi (Expo Go)');
 }
 
 // Home Stack
@@ -57,7 +60,7 @@ const HomeStack = createStackNavigator();
 
 function HomeStackScreen() {
   return (
-    <HomeStack.Navigator>
+    <HomeStack.Navigator screenOptions={{ cardStyle: { backgroundColor: 'transparent' } }}>
       <HomeStack.Screen 
         name="HomeMain" 
         component={HomeScreen}
@@ -89,7 +92,7 @@ function HomeStackScreen() {
         name="QiblaScreen" 
         component={QiblaScreen}
         options={{ 
-          title: 'QÄ±ble PusulasÄ±',
+          title: 'Kıble Pusulası',
           headerShown: false,
           headerStyle: { backgroundColor: '#00897B' },
           headerTintColor: '#fff',
@@ -125,7 +128,7 @@ function HomeStackScreen() {
         component={ImportantDaysScreen}
         options={{ 
           headerShown: false,
-          title: 'Ã–nemli Dini GÃ¼nler',
+          title: 'Önemli Dini Günler',
         }}
       />
       <HomeStack.Screen 
@@ -153,13 +156,13 @@ const QiblaStack = createStackNavigator();
 
 function QiblaStackScreen() {
   return (
-    <QiblaStack.Navigator>
+    <QiblaStack.Navigator screenOptions={{ cardStyle: { backgroundColor: 'transparent' } }}>
       <QiblaStack.Screen 
         name="QiblaMain" 
         component={QiblaScreen}
         options={{ 
           headerShown: false,
-          title: 'KÄ±ble PusulasÄ±',
+          title: 'Kıble Pusulası',
           headerStyle: { backgroundColor: '#1565C0' },
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: 'bold' }
@@ -174,13 +177,13 @@ const MosquesStack = createStackNavigator();
 
 function MosquesStackScreen() {
   return (
-    <MosquesStack.Navigator>
+    <MosquesStack.Navigator screenOptions={{ cardStyle: { backgroundColor: 'transparent' } }}>
       <MosquesStack.Screen 
         name="MosquesMain" 
         component={NearestMosquesScreen}
         options={{ 
           headerShown: false,
-          title: 'YakÄ±n Camiler',
+          title: 'Yakın Camiler',
         }}
       />
     </MosquesStack.Navigator>
@@ -192,7 +195,7 @@ const SettingsStack = createStackNavigator();
 
 function SettingsStackScreen() {
   return (
-    <SettingsStack.Navigator>
+    <SettingsStack.Navigator screenOptions={{ cardStyle: { backgroundColor: 'transparent' } }}>
       <SettingsStack.Screen 
         name="SettingsMain" 
         component={SettingsScreen}
@@ -241,16 +244,19 @@ function CustomTabIcon({
 
 // Main Tabs
 function MainTabs() {
+  const { darkMode } = useAppearance();
+  const { t } = useLocalization();
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        sceneContainerStyle: { backgroundColor: 'transparent' },
         tabBarStyle: styles.tabBar,
         tabBarShowLabel: false,
         tabBarHideOnKeyboard: true,
         tabBarBackground: () => (
           <LinearGradient
-            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            colors={darkMode ? ['#0f5f55', '#16796d', '#2b8c80'] : ['#00897B', '#26A69A', '#4DB6AC']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={{
@@ -267,7 +273,7 @@ function MainTabs() {
         component={HomeStackScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTabIcon iconName="home-variant" label="Ana Sayfa" focused={focused} />
+            <CustomTabIcon iconName="home-variant" label={t('tabs.home')} focused={focused} />
           ),
         }}
       />
@@ -277,7 +283,7 @@ function MainTabs() {
         component={QiblaStackScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTabIcon iconName="compass-outline" label="Kıble" focused={focused} />
+            <CustomTabIcon iconName="compass-outline" label={t('tabs.qibla')} focused={focused} />
           ),
           headerShown: false,
         }}
@@ -288,7 +294,7 @@ function MainTabs() {
         component={MosquesStackScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTabIcon iconName="mosque" label="Camiler" focused={focused} />
+            <CustomTabIcon iconName="mosque" label={t('tabs.mosques')} focused={focused} />
           ),
           headerShown: false,
         }}
@@ -299,7 +305,7 @@ function MainTabs() {
         component={SettingsStackScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <CustomTabIcon iconName="cog-outline" label="Ayarlar" focused={focused} />
+            <CustomTabIcon iconName="cog-outline" label={t('tabs.settings')} focused={focused} />
           ),
         }}
       />
@@ -311,58 +317,61 @@ function MainTabs() {
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
 
+  // Notification listener'larini uygulama baslarken kur
   useEffect(() => {
-    // Splash ekranÄ±nÄ± 3 saniye gÃ¶ster
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // âœ… Notification listener'larÄ±nÄ± uygulama baÅŸlarken kur
-  useEffect(() => {
-    console.log('ğŸ”” Notification listenerlar kuruluyor...');
+    console.log('Notification listenerlar kuruluyor...');
     const listeners = setupNotificationListeners();
-    console.log('âœ… Notification listenerlar kuruldu');
+    console.log('Notification listenerlar kuruldu');
 
 
     return () => {
       if (listeners) {
-        console.log('ğŸ”´ Notification listenerlar kaldÄ±rÄ±lÄ±yor...');
+        console.log('Notification listenerlar kaldiriliyor...');
         removeNotificationListeners(listeners);
       }
     };
   }, []);
 
-  // Splash ekranÄ± gÃ¶ster
+  // Splash ekrani goster
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
-  // âœ… LocationProvider kendi iÃ§inde state yÃ¶netiyor
-  // ArtÄ±k App.tsx'de location state'leri tutmamÄ±za gerek yok
+  // LocationProvider kendi icinde state yonetiyor
+  // Artik App.tsx'de location state'leri tutmamiza gerek yok
   return (
     <LocationProvider>
-      <MainTabs />
+      <View style={styles.appRoot}>
+        <AppBackground />
+        <View style={styles.appContent}>
+          <MainTabs />
+        </View>
+      </View>
     </LocationProvider>
   );
 }
 
 const styles = StyleSheet.create({
+  appRoot: {
+    flex: 1,
+  },
+  appContent: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   tabBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 34,
     left: 0,
     right: 0,
-    height: 75,
+    height: 70,
     backgroundColor: 'transparent',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     overflow: 'hidden',
     paddingHorizontal: 8,
-    paddingBottom: 8,
-    paddingTop: 12,
+    paddingBottom: 6,
+    paddingTop: 7,
     shadowColor: '#0A3D36',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.2,
@@ -377,9 +386,9 @@ const styles = StyleSheet.create({
     width: 70,
   },
   iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
@@ -394,10 +403,10 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   label: {
-    fontSize: 12,
+    fontSize: 13,
     color: 'rgba(255, 255, 255, 0.75)',
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
+    marginTop: -2,
     textAlign: 'center',
   },
   labelActive: {
@@ -414,5 +423,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
 });
+
 
 

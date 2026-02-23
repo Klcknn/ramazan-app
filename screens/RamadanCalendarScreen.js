@@ -15,8 +15,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 const RamadanCalendarScreen = ({ navigation }) => {
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   // Aladhan-Diyanet tarih farkı görülen yıllar için gösterim düzeltmesi (gün)
   const YEAR_DISPLAY_SHIFT_DAYS = {
     2026: 1,
@@ -408,13 +412,13 @@ const RamadanCalendarScreen = ({ navigation }) => {
     const isActiveDay = item.fullDate === todayKey;
 
     return (
-    <View style={[styles.dayCard, isActiveDay && styles.activeDayCard]}>
+    <View style={[styles.dayCard, { backgroundColor: theme.surface }, isActiveDay && styles.activeDayCard]}>
       <View style={styles.cardContent}>
-        <Text style={[styles.dayNumber, isActiveDay && styles.activeDayNumber]}>{item.day}</Text>
+        <Text style={[styles.dayNumber, { color: theme.text }, isActiveDay && styles.activeDayNumber]}>{item.day}</Text>
 
         <View style={styles.dateInfo}>
-          <Text style={[styles.dateText, isActiveDay && styles.activeDateText]}>{item.date}</Text>
-          <Text style={[styles.dayNameText, isActiveDay && styles.activeDayNameText]}>{item.dayName}</Text>
+          <Text style={[styles.dateText, { color: theme.textMuted }, isActiveDay && styles.activeDateText]}>{item.date}</Text>
+          <Text style={[styles.dayNameText, { color: theme.textMuted }, isActiveDay && styles.activeDayNameText]}>{item.dayName}</Text>
         </View>
 
         <Text style={[styles.sahurTime, isActiveDay && styles.activeSahurTime]}>{item.sahur}</Text>
@@ -425,8 +429,8 @@ const RamadanCalendarScreen = ({ navigation }) => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#14b8a6" />
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={theme.darkMode ? 'light-content' : 'dark-content'} backgroundColor="transparent" />
 
       <ImageBackground
         source={require('../assets/images/imsakiye_background_image.jpg')}
@@ -435,7 +439,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
       >
         <View style={styles.header}>
           <LinearGradient
-            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.headerTop}
@@ -443,13 +447,13 @@ const RamadanCalendarScreen = ({ navigation }) => {
             <TouchableOpacity onPress={() => navigation?.goBack()}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>İmsakiye</Text>
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.ramadan')}</Text>
             <View style={{ width: 24 }} />
           </LinearGradient>
 
           <View style={styles.topBar}>
             <TouchableOpacity
-              style={styles.searchBox}
+              style={[styles.searchBox, { backgroundColor: theme.surface }]}
               onPress={() => {
                 setModalStep('province');
                 setSearchQuery('');
@@ -457,8 +461,8 @@ const RamadanCalendarScreen = ({ navigation }) => {
               }}
             >
               <Ionicons name="search" size={22} color="#26A69A" />
-              <Text style={styles.searchText}>
-                {selectedProvince.name} / {selectedDistrict?.name || 'İlçe seçin'}
+              <Text style={[styles.searchText, { color: theme.text }]}>
+                {selectedProvince.name} / {selectedDistrict?.name || t('ramadan.selectDistrict')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -469,10 +473,10 @@ const RamadanCalendarScreen = ({ navigation }) => {
               return (
                 <TouchableOpacity
                   key={year}
-                  style={[styles.yearButton, isActive && styles.yearButtonActive]}
+                  style={[styles.yearButton, { borderColor: theme.border }, isActive && styles.yearButtonActive]}
                   onPress={() => setSelectedYear(year)}
                 >
-                  <Text style={[styles.yearButtonText, isActive && styles.yearButtonTextActive]}>
+                  <Text style={[styles.yearButtonText, { color: theme.textMuted }, isActive && styles.yearButtonTextActive]}>
                     {year}
                   </Text>
                 </TouchableOpacity>
@@ -483,29 +487,29 @@ const RamadanCalendarScreen = ({ navigation }) => {
           <View style={styles.tabBar}>
             <View style={styles.tabItem}>
               <MaterialCommunityIcons name="moon-waning-crescent" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>Ramazan Günü</Text>
+              <Text style={styles.tabLabel}>{t('ramadan.day')}</Text>
             </View>
 
             <View style={styles.tabItem}>
               <MaterialCommunityIcons name="calendar-blank" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>Tarih</Text>
+              <Text style={styles.tabLabel}>{t('ramadan.date')}</Text>
             </View>
 
             <View style={styles.tabItem}>
               <Ionicons name="sunny" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>Sahur Vakti</Text>
+              <Text style={styles.tabLabel}>{t('ramadan.sahur')}</Text>
             </View>
 
             <View style={styles.tabItem}>
               <MaterialCommunityIcons name="weather-night" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>İftar Vakti</Text>
+              <Text style={styles.tabLabel}>{t('ramadan.iftar')}</Text>
             </View>
           </View>
         </View>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#14b8a6" />
-            <Text style={styles.loadingText}>Veriler yükleniyor...</Text>
+            <Text style={[styles.loadingText, { color: theme.textMuted }]}>{t('ramadan.loading')}</Text>
           </View>
         ) : (
           <FlatList
@@ -526,7 +530,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
         onRequestClose={() => setShowCityModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderLeft}>
                 {modalStep === 'district' && (
@@ -537,11 +541,11 @@ const RamadanCalendarScreen = ({ navigation }) => {
                       setSearchQuery('');
                     }}
                   >
-                    <Ionicons name="arrow-back" size={22} color="#14b8a6" />
+                    <Ionicons name="arrow-back" size={22} color={theme.accent} />
                   </TouchableOpacity>
                 )}
-                <Text style={styles.modalTitle}>
-                  {modalStep === 'district' ? `${selectedProvince.name} İlçeleri` : 'İl Seçin'}
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  {modalStep === 'district' ? t('ramadan.districtTitle', { province: selectedProvince.name }) : t('ramadan.provinceTitle')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -551,16 +555,16 @@ const RamadanCalendarScreen = ({ navigation }) => {
                   setSearchQuery('');
                 }}
               >
-                <Ionicons name="close-circle" size={28} color="#14b8a6" />
+                <Ionicons name="close-circle" size={28} color={theme.accent} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalSearchBox}>
-              <Ionicons name="search" size={20} color="#999" />
+            <View style={[styles.modalSearchBox, { backgroundColor: theme.surfaceSoft }]}>
+              <Ionicons name="search" size={20} color={theme.textMuted} />
               <TextInput
-                style={styles.modalSearchInput}
-                placeholder={modalStep === 'district' ? 'İlçe ara...' : 'İl ara...'}
-                placeholderTextColor="#999"
+                style={[styles.modalSearchInput, { color: theme.text }]}
+                placeholder={modalStep === 'district' ? t('ramadan.searchDistrict') : t('ramadan.searchProvince')}
+                placeholderTextColor={theme.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoFocus
@@ -576,22 +580,22 @@ const RamadanCalendarScreen = ({ navigation }) => {
                       style={styles.cityItem}
                       onPress={() => handleProvinceSelect(city)}
                     >
-                      <Text style={styles.cityName}>{city.name}</Text>
+                      <Text style={[styles.cityName, { color: theme.text }]}>{city.name}</Text>
                       {selectedProvince.id === city.id && (
-                        <Ionicons name="checkmark-circle" size={24} color="#14b8a6" />
+                        <Ionicons name="checkmark-circle" size={24} color={theme.accent} />
                       )}
                     </TouchableOpacity>
                   ))}
                   {filteredCities.length === 0 && (
-                    <Text style={styles.noResultText}>İl bulunamadı</Text>
+                    <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('ramadan.provinceNotFound')}</Text>
                   )}
                 </>
               ) : (
                 <>
                   {loadingDistricts ? (
                     <View style={styles.districtLoadingWrap}>
-                      <ActivityIndicator size="small" color="#14b8a6" />
-                      <Text style={styles.districtLoadingText}>İlçeler yükleniyor...</Text>
+                      <ActivityIndicator size="small" color={theme.accent} />
+                      <Text style={[styles.districtLoadingText, { color: theme.textMuted }]}>{t('ramadan.districtsLoading')}</Text>
                     </View>
                   ) : (
                     <>
@@ -601,14 +605,14 @@ const RamadanCalendarScreen = ({ navigation }) => {
                           style={styles.cityItem}
                           onPress={() => handleDistrictSelect(district)}
                         >
-                          <Text style={styles.cityName}>{district.name}</Text>
+                          <Text style={[styles.cityName, { color: theme.text }]}>{district.name}</Text>
                           {selectedDistrict?.id === district.id && (
-                            <Ionicons name="checkmark-circle" size={24} color="#14b8a6" />
+                            <Ionicons name="checkmark-circle" size={24} color={theme.accent} />
                           )}
                         </TouchableOpacity>
                       ))}
                       {filteredDistricts.length === 0 && (
-                        <Text style={styles.noResultText}>İlçe bulunamadı</Text>
+                        <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('ramadan.districtNotFound')}</Text>
                       )}
                     </>
                   )}
@@ -625,7 +629,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#14b8a6',
+    backgroundColor: 'transparent',
   },
   screenBackground: {
     flex: 1,

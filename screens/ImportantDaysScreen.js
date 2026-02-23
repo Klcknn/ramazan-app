@@ -2,8 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 export default function ImportantDaysScreen({ navigation }) {
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [importantDays, setImportantDays] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -207,9 +211,9 @@ export default function ImportantDaysScreen({ navigation }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -217,12 +221,12 @@ export default function ImportantDaysScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Önemli Dini Günler</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.importantDays')}</Text>
         <View style={{ width: 24 }} />
       </LinearGradient>
 
       {/* Yıl Seçici */}
-      <View style={styles.yearSelectorContainer}>
+      <View style={[styles.yearSelectorContainer, { backgroundColor: theme.surface }]}>
         <View style={styles.yearSelectorRow}>
           {years.map((year) => (
             <TouchableOpacity
@@ -230,12 +234,14 @@ export default function ImportantDaysScreen({ navigation }) {
               style={[
                 styles.yearChip,
                 selectedYear === year && styles.yearChipActive,
+                selectedYear !== year && { borderColor: theme.border },
               ]}
               onPress={() => setSelectedYear(year)}
               activeOpacity={0.7}
             >
               <Text style={[
                 styles.yearChipText,
+                { color: theme.textMuted },
                 selectedYear === year && styles.yearChipTextActive,
               ]}>
                 {year}
@@ -254,10 +260,7 @@ export default function ImportantDaysScreen({ navigation }) {
         {importantDays.map((day, index) => (
           <TouchableOpacity
             key={index}
-            style={[
-              styles.dayRow,
-              day.isPast && styles.dayRowPast,
-            ]}
+              style={[styles.dayRow, { backgroundColor: theme.surface }, day.isPast && styles.dayRowPast]}
             onPress={() => handleDayPress(day)}
             activeOpacity={0.7}
           >
@@ -269,23 +272,14 @@ export default function ImportantDaysScreen({ navigation }) {
             </View>
 
             <View style={styles.dayInfo}>
-              <Text style={[
-                styles.dayName,
-                day.isPast && styles.dayNamePast,
-              ]}>
+              <Text style={[styles.dayName, { color: theme.text }, day.isPast && styles.dayNamePast]}>
                 {day.name}
               </Text>
-              <Text style={[
-                styles.dayDate,
-                day.isPast && styles.dayDatePast,
-              ]}>
+              <Text style={[styles.dayDate, { color: theme.textMuted }, day.isPast && styles.dayDatePast]}>
                 📅 {day.formattedDate}
               </Text>
               {day.duration && (
-                <Text style={[
-                  styles.dayDuration,
-                  day.isPast && styles.dayDatePast,
-                ]}>
+                <Text style={[styles.dayDuration, { color: theme.textMuted }, day.isPast && styles.dayDatePast]}>
                   ⏰ {day.duration}
                 </Text>
               )}
@@ -318,7 +312,7 @@ export default function ImportantDaysScreen({ navigation }) {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             {selectedDay && (
               <>
                 <LinearGradient
@@ -341,23 +335,23 @@ export default function ImportantDaysScreen({ navigation }) {
 
                 <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                   <View style={styles.infoSection}>
-                    <Text style={styles.infoSectionTitle}>📖 Gün Bilgisi</Text>
-                    <Text style={styles.infoSectionText}>{selectedDay.description}</Text>
+                    <Text style={[styles.infoSectionTitle, { color: theme.text }]}>📖 Gün Bilgisi</Text>
+                    <Text style={[styles.infoSectionText, { color: theme.textMuted }]}>{selectedDay.description}</Text>
                   </View>
 
                   <View style={styles.infoSection}>
-                    <Text style={styles.infoSectionTitle}>✅ Bu Günde Yapılacaklar</Text>
+                    <Text style={[styles.infoSectionTitle, { color: theme.text }]}>✅ Bu Günde Yapılacaklar</Text>
                     {(selectedDay.prayers || []).map((item, idx) => (
                       <View key={idx} style={styles.todoItem}>
                         <Text style={styles.todoBullet}>•</Text>
-                        <Text style={styles.todoText}>{item}</Text>
+                        <Text style={[styles.todoText, { color: theme.textMuted }]}>{item}</Text>
                       </View>
                     ))}
                   </View>
 
                   <View style={[styles.infoSection, styles.hadithSection]}>
-                    <Text style={styles.infoSectionTitle}>ℹ️ Kısa Özet</Text>
-                    <Text style={styles.hadithText}>
+                    <Text style={[styles.infoSectionTitle, { color: theme.text }]}>ℹ️ Kısa Özet</Text>
+                    <Text style={[styles.hadithText, { color: theme.textMuted }]}>
                       {selectedDay.duration ? `${selectedDay.duration} süren mübarek günlerdendir. ` : ''}
                       Durum: {getDaysLeftText(selectedDay)}
                     </Text>
@@ -377,7 +371,7 @@ export default function ImportantDaysScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

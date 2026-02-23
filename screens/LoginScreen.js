@@ -17,6 +17,7 @@ import {
 import AppLogo from '../assets/images/logo/AppLogo';
 import { auth } from '../config/firebase';
 import { LocationContext } from '../context/LocationContext';
+import { useLocalization } from '../context/LocalizationContext';
 
 const { height } = Dimensions.get('window');
 
@@ -26,14 +27,15 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   
   const { fullLocation, backgroundImage, loading: locationLoading } = useContext(LocationContext);
+  const { t } = useLocalization();
 
   const validateForm = () => {
     if (!email) {
-      Alert.alert('Hata', 'Email adresi gerekli');
+      Alert.alert(t('common.error'), t('auth.emailRequired'));
       return false;
     }
     if (!password) {
-      Alert.alert('Hata', 'Şifre gerekli');
+      Alert.alert(t('common.error'), t('auth.passwordRequired'));
       return false;
     }
     return true;
@@ -81,7 +83,7 @@ export default function LoginScreen({ navigation }) {
         errorMessage = 'Email veya şifre hatalı';
       }
       
-      Alert.alert('Giriş Başarısız', errorMessage);
+      Alert.alert(t('auth.loginFailed'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ export default function LoginScreen({ navigation }) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.loadingText}>Konum bilgisi alınıyor...</Text>
+        <Text style={styles.loadingText}>{t('auth.loadingLocation')}</Text>
       </View>
     );
   }
@@ -125,12 +127,12 @@ export default function LoginScreen({ navigation }) {
 
           {/* Form Kartı */}
           <BlurView intensity={60} tint="light" style={styles.formCard}>
-            <Text style={styles.title}>Hoş Geldiniz</Text>
-            <Text style={styles.subtitle}>Ramazan&apos;a Hazırlanın</Text>
+            <Text style={styles.title}>{t('auth.welcome')}</Text>
+            <Text style={styles.subtitle}>{t('auth.prepareRamadan')}</Text>
 
             {/* Email */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{t('auth.email')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="ornek@email.com"
@@ -145,7 +147,7 @@ export default function LoginScreen({ navigation }) {
 
             {/* Şifre */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Şifre</Text>
+              <Text style={styles.label}>{t('auth.password')}</Text>
               <TextInput
                 style={styles.input}
                 placeholder="••••••••"
@@ -160,9 +162,9 @@ export default function LoginScreen({ navigation }) {
             {/* Şifremi Unuttum */}
             <TouchableOpacity 
               style={styles.forgotButton}
-              onPress={() => Alert.alert('Bilgi', 'Şifre sıfırlama özelliği yakında')}
+              onPress={() => Alert.alert(t('common.info'), t('auth.resetSoon'))}
             >
-              <Text style={styles.forgotText}>Şifremi Unuttum</Text>
+              <Text style={styles.forgotText}>{t('auth.forgotPassword')}</Text>
             </TouchableOpacity>
 
             {/* Giriş Butonu */}
@@ -179,7 +181,7 @@ export default function LoginScreen({ navigation }) {
                 end={{ x: 1, y: 0 }}
               >
                 <Text style={styles.buttonText}>
-                  {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+                  {loading ? t('auth.loggingIn') : t('auth.login')}
                 </Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -190,7 +192,7 @@ export default function LoginScreen({ navigation }) {
               onPress={() => navigation.navigate('Register')}
             >
               <Text style={styles.registerText}>
-                Hesabın yok mu? <Text style={styles.registerTextBold}>Kayıt Ol</Text>
+                {t('auth.noAccount')} <Text style={styles.registerTextBold}>{t('auth.register')}</Text>
               </Text>
             </TouchableOpacity>
           </BlurView>

@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
@@ -21,9 +21,10 @@ import ViewShot from 'react-native-view-shot';
 // Firebase Web SDK import
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
+import { useAppearance } from '../context/AppearanceContext';
 
 const HadisScreen = ({ navigation }) => {
-  const [isDarkMode] = useState(false); // Karanlık mod kapalı
+  const { darkMode: isDarkMode } = useAppearance();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [selectedHadis, setSelectedHadis] = useState(null);
@@ -585,7 +586,7 @@ const HadisScreen = ({ navigation }) => {
               </View>
               
               {/* Footer */}
-              <Text style={styles.shareFooter}>🌙 Ramazan Uygulaması</Text>
+              <Text style={styles.shareFooter}>🌙 Vakitçim</Text>
             </LinearGradient>
           </ViewShot>
         </View>
@@ -924,3 +925,6 @@ const styles = StyleSheet.create({
 });
 
 export default HadisScreen;
+
+
+

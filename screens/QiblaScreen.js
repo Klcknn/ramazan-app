@@ -3,6 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Magnetometer } from 'expo-sensors';
 import { useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, Dimensions, ImageBackground, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 import { LocationContext } from '../context/LocationContext';
 import { calculateDistanceToKaaba, calculateQiblaDirection } from '../utils/qiblaCalculator';
 
@@ -11,6 +13,8 @@ const CIRCLE_SIZE = width * 0.7;
 
 export default function QiblaScreen({ navigation }) {
   const { location } = useContext(LocationContext);
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   const [heading, setHeading] = useState(0);
   const [qiblaDirection, setQiblaDirection] = useState(0);
   const [distance, setDistance] = useState(0);
@@ -30,7 +34,7 @@ export default function QiblaScreen({ navigation }) {
       console.log('🕋 Kıble:', qibla.toFixed(1), '°');
       console.log('📏 Mesafe:', dist, 'km');
     } else {
-      Alert.alert('Konum Gerekli', 'Kıble yönünü hesaplamak için konum izni gereklidir.');
+      Alert.alert(t('qibla.locationRequiredTitle'), t('qibla.locationRequiredDesc'));
     }
 
     startMagnetometer();
@@ -40,7 +44,7 @@ export default function QiblaScreen({ navigation }) {
   const startMagnetometer = useCallback(async () => {
     const isAvailable = await Magnetometer.isAvailableAsync();
     if (!isAvailable) {
-      Alert.alert('Hata', 'Cihazınızda pusula sensörü yok');
+      Alert.alert(t('common.error'), t('qibla.sensorError'));
       return;
     }
 
@@ -95,7 +99,7 @@ export default function QiblaScreen({ navigation }) {
       resizeMode="cover"
     >
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.headerBar}
@@ -103,28 +107,28 @@ export default function QiblaScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerBarTitle}>Kıble Pusulası</Text>
+        <Text style={[styles.headerBarTitle, { color: '#FFFFFF' }]}>{t('headers.qibla')}</Text>
         <View style={{ width: 24 }} />
       </LinearGradient>
 
       <View style={styles.content}>
         <View style={styles.topStatsRow}>
-          <View style={[styles.infoCard, styles.topStatCard]}>
-            <Text style={styles.infoLabel}>Kıble Yönü</Text>
-            <Text style={[styles.infoValue, styles.topInfoValue]}>{qiblaDirection.toFixed(0)}°</Text>
+          <View style={[styles.infoCard, styles.topStatCard, { backgroundColor: theme.surface, borderColor: circleColor }]}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>{t('qibla.direction')}</Text>
+            <Text style={[styles.infoValue, styles.topInfoValue, { color: theme.text }]}>{qiblaDirection.toFixed(0)}°</Text>
           </View>
 
           {/* Mesafe */}
-          <View style={[styles.distanceCard, styles.topDistanceCard]}>
-            <Text style={styles.distanceLabel}>Kabe&apos;ye Mesafe</Text>
-            <Text style={[styles.distanceText, styles.topDistanceText]}>
+          <View style={[styles.distanceCard, styles.topDistanceCard, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.distanceLabel, { color: theme.textMuted }]}>{t('qibla.distance')}</Text>
+            <Text style={[styles.distanceText, styles.topDistanceText, { color: theme.text }]}>
               {distance.toLocaleString('tr-TR')} km
             </Text>
           </View>
 
-          <View style={[styles.infoCard, styles.topStatCard]}>
-            <Text style={styles.infoLabel}>Telefonun Yönü</Text>
-            <Text style={[styles.infoValue, styles.topInfoValue]}>{heading.toFixed(0)}°</Text>
+          <View style={[styles.infoCard, styles.topStatCard, { backgroundColor: theme.surface, borderColor: circleColor }]}>
+            <Text style={[styles.infoLabel, { color: theme.textMuted }]}>{t('qibla.phoneDirection')}</Text>
+            <Text style={[styles.infoValue, styles.topInfoValue, { color: theme.text }]}>{heading.toFixed(0)}°</Text>
           </View>
         </View>
 
@@ -209,34 +213,34 @@ export default function QiblaScreen({ navigation }) {
           {/* Yön Etiketleri (KUZEY, DOĞU, GÜNEY, BATI) */}
           <View style={styles.northLabel}>
             <Text style={styles.northText}>▲</Text>
-            <Text style={styles.directionLabelText}>KUZEY</Text>
+            <Text style={styles.directionLabelText}>{t('qibla.north')}</Text>
           </View>
 
           <View style={styles.eastLabel}>
-            <Text style={styles.directionLabelText}>DOĞU</Text>
+            <Text style={styles.directionLabelText}>{t('qibla.east')}</Text>
           </View>
 
           <View style={styles.southLabel}>
-            <Text style={styles.directionLabelText}>GÜNEY</Text>
+            <Text style={styles.directionLabelText}>{t('qibla.south')}</Text>
           </View>
 
           <View style={styles.westLabel}>
-            <Text style={styles.directionLabelText}>BATI</Text>
+            <Text style={styles.directionLabelText}>{t('qibla.west')}</Text>
           </View>
         </View>
 
         <View style={styles.rotationNoteContainer}>
-          <Text style={styles.rotationNoteText}>Telefonunuzu yavaşça çevirin</Text>
+          <Text style={styles.rotationNoteText}>{t('qibla.rotatePhone')}</Text>
         </View>
 
         {/* Durum Mesajı */}
         <View style={[styles.statusCard, { backgroundColor: '#FFFFFF', borderColor: circleColor }]}>
           <Text style={[styles.statusCardText, { color: statusReadableColor }]}>
             {isPointingToQibla 
-              ? '✅ Kıble yönüne bakıyorsunuz!' 
+              ? `✅ ${t('qibla.aligned')}` 
               : difference < 30
-              ? '🟡 Yaklaşıyorsunuz, biraz daha çevirin'
-              : '🔴 Telefonunuzu yavaşça çevirerek kıble yönünü bulun'
+              ? `🟡 ${t('qibla.near')}`
+              : `🔴 ${t('qibla.far')}`
             }
           </Text>
         </View>
@@ -244,7 +248,7 @@ export default function QiblaScreen({ navigation }) {
         {/* Kalibrasyon */}
         {!isCalibrated && (
           <View style={styles.calibrationNote}>
-            <Text style={styles.calibrationText}>⚠️ Pusula kalibre ediliyor...</Text>
+            <Text style={styles.calibrationText}>⚠️ {t('qibla.calibrating')}</Text>
           </View>
         )}
       </View>

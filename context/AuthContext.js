@@ -1,4 +1,4 @@
-// AuthContext.js - ARTIK KULLANILMIYOR
+﻿// AuthContext.js - ARTIK KULLANILMIYOR
 // Bu dosya giriş/kayıt sistemi kaldırıldığında gerekli değil
 // Dosyayı tamamen silebilirsiniz
 

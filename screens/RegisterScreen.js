@@ -13,6 +13,7 @@ import {
 import { auth, db } from '../config/firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { useLocalization } from '../context/LocalizationContext';
 
 export default function RegisterScreen({ navigation }) {
   // State'ler - form verilerini tutar
@@ -21,41 +22,42 @@ export default function RegisterScreen({ navigation }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLocalization();
 
   // Form validasyonu
   const validateForm = () => {
     // Email kontrolü
     if (!email) {
-      Alert.alert('Hata', 'Email adresi gerekli');
+      Alert.alert(t('common.error'), t('auth.emailRequired'));
       return false;
     }
     
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert('Hata', 'Geçerli bir email adresi girin');
+      Alert.alert(t('common.error'), t('auth.validEmailRequired'));
       return false;
     }
 
     // İsim kontrolü
     if (!fullName) {
-      Alert.alert('Hata', 'Adınızı girin');
+      Alert.alert(t('common.error'), t('auth.nameRequired'));
       return false;
     }
 
     // Şifre kontrolü
     if (!password) {
-      Alert.alert('Hata', 'Şifre gerekli');
+      Alert.alert(t('common.error'), t('auth.passwordRequired'));
       return false;
     }
 
     if (password.length < 6) {
-      Alert.alert('Hata', 'Şifre en az 6 karakter olmalı');
+      Alert.alert(t('common.error'), t('auth.passwordMin'));
       return false;
     }
 
     // Şifre eşleşme kontrolü
     if (password !== confirmPassword) {
-      Alert.alert('Hata', 'Şifreler eşleşmiyor');
+      Alert.alert(t('common.error'), t('auth.passwordMismatch'));
       return false;
     }
 
@@ -86,10 +88,10 @@ export default function RegisterScreen({ navigation }) {
       console.log('✅ Kullanıcı başarıyla kaydedildi:', user.uid);
 
       Alert.alert(
-        'Başarılı! 🎉', 
-        'Hesabınız oluşturuldu. Giriş yapabilirsiniz.',
+        `${t('auth.registerSuccessTitle')} 🎉`, 
+        t('auth.registerSuccessDesc'),
         [{ 
-          text: 'Tamam', 
+          text: t('common.ok'), 
           onPress: () => navigation.navigate('Login')
         }]
       );
@@ -98,19 +100,19 @@ export default function RegisterScreen({ navigation }) {
       console.error('❌ Kayıt hatası:', error);
       
       // Hata mesajlarını Türkçe'ye çevir
-      let errorMessage = 'Kayıt sırasında bir hata oluştu';
+      let errorMessage = t('auth.registerError');
       
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Bu email adresi zaten kullanılıyor';
+        errorMessage = t('auth.emailInUse');
       } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Geçersiz email adresi';
+        errorMessage = t('auth.invalidEmail');
       } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Şifre çok zayıf (en az 6 karakter)';
+        errorMessage = t('auth.weakPassword');
       } else if (error.code === 'auth/network-request-failed') {
-        errorMessage = 'İnternet bağlantısı hatası';
+        errorMessage = t('auth.networkError');
       }
       
-      Alert.alert('Hata', errorMessage);
+      Alert.alert(t('common.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -126,17 +128,17 @@ export default function RegisterScreen({ navigation }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={styles.title}>🌙 Hesap Oluştur</Text>
-          <Text style={styles.subtitle}>Ramazan&apos;a hazırlan</Text>
+          <Text style={styles.title}>🌙 {t('auth.createAccount')}</Text>
+          <Text style={styles.subtitle}>{t('auth.prepareRamadanShort')}</Text>
         </View>
 
         <View style={styles.form}>
           {/* Ad Soyad Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Ad Soyad</Text>
+            <Text style={styles.label}>{t('auth.fullName')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Adınızı girin"
+              placeholder={t('auth.fullNamePlaceholder')}
               placeholderTextColor="#999"
               value={fullName}
               onChangeText={setFullName}
@@ -146,7 +148,7 @@ export default function RegisterScreen({ navigation }) {
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Email</Text>
+            <Text style={styles.label}>{t('auth.email')}</Text>
             <TextInput
               style={styles.input}
               placeholder="ornek@email.com"
@@ -161,10 +163,10 @@ export default function RegisterScreen({ navigation }) {
 
           {/* Şifre Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Şifre</Text>
+            <Text style={styles.label}>{t('auth.password')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="En az 6 karakter"
+              placeholder={t('auth.passwordMinPlaceholder')}
               placeholderTextColor="#999"
               value={password}
               onChangeText={setPassword}
@@ -175,10 +177,10 @@ export default function RegisterScreen({ navigation }) {
 
           {/* Şifre Tekrar Input */}
           <View style={styles.inputContainer}>
-            <Text style={styles.label}>Şifre Tekrar</Text>
+            <Text style={styles.label}>{t('auth.passwordRepeat')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Şifrenizi tekrar girin"
+              placeholder={t('auth.passwordRepeatPlaceholder')}
               placeholderTextColor="#999"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
@@ -194,7 +196,7 @@ export default function RegisterScreen({ navigation }) {
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Kaydediliyor...' : 'Kayıt Ol'}
+              {loading ? t('auth.registering') : t('auth.register')}
             </Text>
           </TouchableOpacity>
 
@@ -204,7 +206,7 @@ export default function RegisterScreen({ navigation }) {
             onPress={() => navigation.goBack()}
           >
             <Text style={styles.linkText}>
-              Zaten hesabın var mı? <Text style={styles.linkTextBold}>Giriş Yap</Text>
+              {t('auth.alreadyHaveAccount')} <Text style={styles.linkTextBold}>{t('auth.login')}</Text>
             </Text>
           </TouchableOpacity>
         </View>

@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +6,8 @@ import * as Sharing from 'expo-sharing';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 import { LocationContext } from '../context/LocationContext';
 import { getUnreadNotificationCount } from '../services/Notificationrenewalhelper';
 import { fetchDailyContent } from '../services/DailyContentService';
@@ -71,6 +73,8 @@ export default function HomeScreen() {
 
   // ✅ Bildirim sistemi
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const theme = useAppTheme();
+  const { t } = useLocalization();
   
   useEffect(() => {
     const timer = setInterval(() => {
@@ -213,9 +217,9 @@ export default function HomeScreen() {
     } catch (error) {
       console.error('❌ Günlük içerik yüklenirken hata:', error);
       Alert.alert(
-        'Bilgi',
-        'Günlük hadis ve dua yüklenemedi. Lütfen internet bağlantınızı kontrol edin.',
-        [{ text: 'Tamam' }]
+        t('home.dailyContentLoadErrorTitle'),
+        t('home.dailyContentLoadError'),
+        [{ text: t('common.ok') }]
       );
     } finally {
       setContentLoading(false);
@@ -250,7 +254,7 @@ export default function HomeScreen() {
       if (existingIndex >= 0) {
         // Favorilerden çıkar
         favList.splice(existingIndex, 1);
-        Alert.alert('Başarılı', 'Favorilerden kaldırıldı');
+        Alert.alert(t('common.success'), t('home.favoriteRemoved'));
         if (type === 'dua') setIsDuaFavorite(false);
         if (type === 'hadis') setIsHadisFavorite(false);
       } else {
@@ -261,7 +265,7 @@ export default function HomeScreen() {
           content: content,
           addedAt: new Date().toISOString()
         });
-        Alert.alert('Başarılı', 'Favorilere eklendi');
+        Alert.alert(t('common.success'), t('home.favoriteAdded'));
         if (type === 'dua') setIsDuaFavorite(true);
         if (type === 'hadis') setIsHadisFavorite(true);
       }
@@ -269,7 +273,7 @@ export default function HomeScreen() {
       await AsyncStorage.setItem('favorites', JSON.stringify(favList));
     } catch (error) {
       console.error('Favori ekleme hatası:', error);
-      Alert.alert('Hata', 'Favorilere eklenirken bir hata oluştu');
+      Alert.alert(t('common.error'), t('home.favoriteError'));
     }
   };
 
@@ -277,7 +281,7 @@ export default function HomeScreen() {
   const handleShare = async (type, content, viewShotRef) => {
     try {
       if (!viewShotRef.current) {
-        Alert.alert('Hata', 'Görsel hazırlanamadı');
+        Alert.alert(t('common.error'), t('home.shareImagePrepareError'));
         return;
       }
 
@@ -291,11 +295,11 @@ export default function HomeScreen() {
           dialogTitle: type === 'dua' ? '🤲 Günün Duası' : '📖 Günün Hadisi',
         });
       } else {
-        Alert.alert('Hata', 'Paylaşım özelliği bu cihazda kullanılamıyor');
+        Alert.alert(t('common.error'), t('home.shareNotAvailable'));
       }
     } catch (error) {
       console.error('Paylaşım hatası:', error);
-      Alert.alert('Hata', 'Paylaşım sırasında bir hata oluştu');
+      Alert.alert(t('common.error'), t('home.shareError'));
     }
   };
 
@@ -376,19 +380,19 @@ export default function HomeScreen() {
         }
       } else {
         Alert.alert(
-          'Konum Gerekli',
-          'Namaz vakitlerini gösterebilmek için konum izni verin veya Ayarlar > Konum Ayarları bölümünden il/ilçe seçin.',
-          [{ text: 'Tamam' }]
+          t('home.locationRequiredTitle'),
+          t('home.locationRequiredDesc'),
+          [{ text: t('common.ok') }]
         );
       }
     } catch (error) {
       console.error('❌ Namaz vakitleri hatası:', error);
       Alert.alert(
-        'Hata', 
-        'Namaz vakitleri alınamadı. Tekrar denemek ister misiniz?',
+        t('home.prayerTimesErrorTitle'), 
+        t('home.prayerTimesError'),
         [
-          { text: 'İptal', style: 'cancel' },
-          { text: 'Tekrar Dene', onPress: fetchPrayerTimes }
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('common.ok'), onPress: fetchPrayerTimes }
         ]
       );
     } finally {
@@ -520,16 +524,16 @@ export default function HomeScreen() {
 
   // ✅ 5x2 Grid için 10 özellik
   const features = [
-    { name: 'Zikirmatik', icon: 'counter', screen: 'Tesbih' },
-    { name: 'Camiler', icon: 'mosque', screen: 'NearestMosquesScreen' },
-    { name: 'Kıble', icon: 'compass-outline', screen: 'QiblaScreen' },
-    { name: 'İmsakiye', icon: 'moon-waning-crescent', screen: 'RamadanCalendar' },
-    { name: 'Dua', icon: 'hands-pray', screen: 'DuaScreen' },
-    { name: 'Hadis', icon: 'book-open-variant', screen: 'HadisScreen' },
-    { name: 'Dini Günler', icon: 'calendar-star', screen: 'ImportantDaysScreen' },
-    { name: 'Namazlar', icon: 'clock-outline', screen: null },
-    { name: 'Kuran', icon: 'book-open-page-variant', screen: null },
-    { name: 'Hutbe', icon: 'microphone-outline', screen: null },
+    { name: t('home.features.tesbih'), icon: 'counter', screen: 'Tesbih' },
+    { name: t('home.features.mosques'), icon: 'mosque', screen: 'NearestMosquesScreen' },
+    { name: t('home.features.qibla'), icon: 'compass-outline', screen: 'QiblaScreen' },
+    { name: t('home.features.ramadan'), icon: 'moon-waning-crescent', screen: 'RamadanCalendar' },
+    { name: t('home.features.dua'), icon: 'hands-pray', screen: 'DuaScreen' },
+    { name: t('home.features.hadis'), icon: 'book-open-variant', screen: 'HadisScreen' },
+    { name: t('home.features.holyDays'), icon: 'calendar-star', screen: 'ImportantDaysScreen' },
+    { name: t('home.features.prayers'), icon: 'clock-outline', screen: null },
+    { name: t('home.features.quran'), icon: 'book-open-page-variant', screen: null },
+    { name: t('home.features.khutbah'), icon: 'microphone-outline', screen: null },
   ];  
   
   // ✅ 5x2 Grid için 10 özellik
@@ -548,24 +552,24 @@ export default function HomeScreen() {
 
   if (loading && !prayerTimes) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#00897B" />
-        <Text style={styles.loadingText}>Namaz vakitleri yükleniyor...</Text>
-        <Text style={styles.loadingSubtext}>Konumunuz kontrol ediliyor</Text>
+        <Text style={[styles.loadingText, { color: theme.text }]}>{t('common.loading')}</Text>
+        <Text style={[styles.loadingSubtext, { color: theme.textMuted }]}>{t('home.checkingLocation')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ImageBackground 
         source={HEADER_IMAGES[currentImageIndex]} 
         style={styles.backgroundImage} 
         resizeMode="cover"
       >
-      <View style={styles.overlay} />
+      <View style={[styles.overlay, theme.darkMode && { backgroundColor: 'rgba(0, 0, 0, 0.48)' }]} />
       <LinearGradient
-        colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} 
+        colors={theme.darkMode ? ['rgba(10, 64, 58, 0.92)', 'rgba(16, 95, 85, 0.84)', 'rgba(30, 112, 102, 0.78)'] : ['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} 
         start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={styles.topSection}
       >
@@ -603,7 +607,7 @@ export default function HomeScreen() {
                 kaldı.
               </>
             ) : (
-              'Namaz vakitleri yükleniyor...'
+              t('common.loading')
             )}
           </Text>
         </View>
@@ -663,12 +667,12 @@ export default function HomeScreen() {
         <View style={styles.featuresHeader}>
           <View style={styles.dragHandle} />
           <LinearGradient
-            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.featuresTitleContainer}
           >
-            <Text style={styles.featuresTitle}>TÜM ÖZELLİKLER</Text>
+            <Text style={styles.featuresTitle}>{t('home.allFeatures')}</Text>
           </LinearGradient>
         </View>
 
@@ -682,7 +686,7 @@ export default function HomeScreen() {
                 if (feature.screen) {
                   navigation.navigate(feature.screen);
                 } else {
-                  Alert.alert('Yakında', `${feature.name} özelliği çok yakında eklenecek!`);
+                  Alert.alert(t('common.soon'), t('home.featureSoon', { name: feature.name }));
                 }
               }}
             >
@@ -703,70 +707,70 @@ export default function HomeScreen() {
         {/* ✅ Ortalanmış başlık */}
         <View style={styles.dailyContentSection}>
           <LinearGradient
-            colors={['#00897B', '#26A69A', '#4DB6AC']}
+            colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.sectionTitleContainer}
           >
-            <Text style={styles.sectionTitle}>GÜNÜN İÇERİĞİ</Text>
+            <Text style={styles.sectionTitle}>{t('home.dailyContent')}</Text>
           </LinearGradient>
           
           {contentLoading ? (
             <View style={styles.contentLoadingContainer}>
-              <ActivityIndicator size="small" color="#00897B" />
-              <Text style={styles.contentLoadingText}>Günlük içerik yükleniyor...</Text>
+              <ActivityIndicator size="small" color={theme.accent} />
+              <Text style={[styles.contentLoadingText, { color: theme.textMuted }]}>{t('home.dailyContentLoading')}</Text>
             </View>
           ) : (
             <>
               {dailyDua && (
                 <TouchableOpacity 
-                  style={styles.dailyCard}
+                  style={[styles.dailyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
                   activeOpacity={0.9}
                   onPress={() => setShowDuaModal(true)}
                 >
                   <View style={styles.dailyCardHeader}>
-                    <View style={[styles.dailyCardIconContainer, { backgroundColor: '#E0F2F1' }]}>
+                  <View style={[styles.dailyCardIconContainer, { backgroundColor: theme.darkMode ? '#1f4a44' : '#E0F2F1' }]}>
                       <Text style={styles.dailyCardIcon}>🤲</Text>
                     </View>
                     <View style={styles.dailyCardTitleContainer}>
-                      <Text style={styles.dailyCardLabel}>GÜNÜN DUASI</Text>
-                      <Text style={styles.dailyCardTitle} numberOfLines={1}>
+                      <Text style={[styles.dailyCardLabel, { color: theme.accent }]}>{t('home.dailyDua')}</Text>
+                      <Text style={[styles.dailyCardTitle, { color: theme.text }]} numberOfLines={1}>
                         {dailyDua.title}
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.dailyCardPreview} numberOfLines={2}>
+                  <Text style={[styles.dailyCardPreview, { color: theme.textMuted }]} numberOfLines={2}>
                     {dailyDua.turkish}
                   </Text>
                   <View style={styles.dailyCardFooter}>
-                    <Text style={styles.readMoreText}>Tamamını Oku →</Text>
+                    <Text style={[styles.readMoreText, { color: theme.accent }]}>{t('home.readMore')} →</Text>
                   </View>
                 </TouchableOpacity>
               )}
 
               {dailyHadis && (
                 <TouchableOpacity 
-                  style={styles.dailyCard}
+                  style={[styles.dailyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
                   activeOpacity={0.9}
                   onPress={() => setShowHadisModal(true)}
                 >
                   <View style={styles.dailyCardHeader}>
-                    <View style={[styles.dailyCardIconContainer, { backgroundColor: '#FFF8E1' }]}>
+                    <View style={[styles.dailyCardIconContainer, { backgroundColor: theme.darkMode ? '#4b3f24' : '#FFF8E1' }]}>
                       <Text style={styles.dailyCardIcon}>📖</Text>
                     </View>
                     <View style={styles.dailyCardTitleContainer}>
-                      <Text style={styles.dailyCardLabel}>GÜNÜN HADİSİ</Text>
-                      <Text style={styles.dailyCardTitle} numberOfLines={1}>
+                      <Text style={[styles.dailyCardLabel, { color: theme.accent }]}>{t('home.dailyHadith')}</Text>
+                      <Text style={[styles.dailyCardTitle, { color: theme.text }]} numberOfLines={1}>
                         {dailyHadis.title}
                       </Text>
                     </View>
                   </View>
-                  <Text style={styles.dailyCardPreview} numberOfLines={2}>
+                  <Text style={[styles.dailyCardPreview, { color: theme.textMuted }]} numberOfLines={2}>
                     {dailyHadis.turkish}
                   </Text>
                   <View style={styles.dailyCardFooter}>
-                    <Text style={styles.dailyCardSource}>📚 {dailyHadis.source}</Text>
-                    <Text style={styles.readMoreText}>Tamamını Oku →</Text>
+                    <Text style={[styles.dailyCardSource, { color: theme.textMuted }]}>📚 {dailyHadis.source}</Text>
+                    <Text style={[styles.readMoreText, { color: theme.accent }]}>{t('home.readMore')} →</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -792,7 +796,7 @@ export default function HomeScreen() {
               {/* Header */}
               <View style={styles.shareImageHeader}>
                 <Text style={styles.shareImageIcon}>🤲</Text>
-                <Text style={styles.shareImageTitle}>GÜNÜN DUASI</Text>
+                <Text style={styles.shareImageTitle}>{t('home.dailyDua')}</Text>
               </View>
 
               {/* Title */}
@@ -804,7 +808,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageSection}>
                 <View style={styles.shareImageSectionHeader}>
                   <View style={styles.shareImageLine} />
-                  <Text style={styles.shareImageSectionTitle}>Arapça</Text>
+                  <Text style={styles.shareImageSectionTitle}>{t('home.shareSectionArabic')}</Text>
                   <View style={styles.shareImageLine} />
                 </View>
                 <Text style={styles.shareImageArabic}>{dailyDua?.arabic}</Text>
@@ -814,7 +818,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageSection}>
                 <View style={styles.shareImageSectionHeader}>
                   <View style={styles.shareImageLine} />
-                  <Text style={styles.shareImageSectionTitle}>Okunuşu</Text>
+                  <Text style={styles.shareImageSectionTitle}>{t('home.shareSectionPronunciation')}</Text>
                   <View style={styles.shareImageLine} />
                 </View>
                 <Text style={styles.shareImagePronunciation}>{dailyDua?.pronunciation}</Text>
@@ -824,7 +828,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageSection}>
                 <View style={styles.shareImageSectionHeader}>
                   <View style={styles.shareImageLine} />
-                  <Text style={styles.shareImageSectionTitle}>Türkçe Meali</Text>
+                  <Text style={styles.shareImageSectionTitle}>{t('home.shareSectionTurkishMeaning')}</Text>
                   <View style={styles.shareImageLine} />
                 </View>
                 <Text style={styles.shareImageTurkish}>{dailyDua?.turkish}</Text>
@@ -834,7 +838,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageFooter}>
                 <Text style={styles.shareImageSource}>📚 {dailyDua?.source}</Text>
                 <View style={styles.shareImageBranding}>
-                  <Text style={styles.shareImageBrandText}>🕌 İslami Hayat</Text>
+                  <Text style={styles.shareImageBrandText}>🕌 Vakitçim</Text>
                 </View>
               </View>
             </View>
@@ -852,20 +856,20 @@ export default function HomeScreen() {
             
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>ARAPÇA</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionArabic')}</Text>
                 <Text style={styles.modalArabic}>{dailyDua?.arabic}</Text>
               </View>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>OKUNUŞU</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionPronunciation')}</Text>
                 <Text style={styles.modalPronunciation}>{dailyDua?.pronunciation}</Text>
               </View>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>ANLAMI</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionMeaning')}</Text>
                 <Text style={styles.modalTurkish}>{dailyDua?.turkish}</Text>
               </View>
               {dailyDua?.meaning && (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionLabel}>AÇIKLAMA</Text>
+                  <Text style={styles.modalSectionLabel}>{t('home.modalSectionExplanation')}</Text>
                   <Text style={styles.modalMeaning}>{dailyDua.meaning}</Text>
                 </View>
               )}
@@ -881,7 +885,7 @@ export default function HomeScreen() {
                   {isDuaFavorite ? '❤️' : '🤍'}
                 </Text>
                 <Text style={styles.actionButtonText}>
-                  {isDuaFavorite ? 'Favorilerde' : 'Favorilere Ekle'}
+                  {isDuaFavorite ? t('home.favoriteInList') : t('home.addToFavorites')}
                 </Text>
               </TouchableOpacity>
 
@@ -890,7 +894,7 @@ export default function HomeScreen() {
                 onPress={() => handleShare('dua', dailyDua, duaViewShotRef)}
               >
                 <Text style={styles.actionButtonIcon}>📤</Text>
-                <Text style={styles.actionButtonText}>Paylaş</Text>
+                <Text style={styles.actionButtonText}>{t('home.shareAction')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -901,7 +905,7 @@ export default function HomeScreen() {
                 navigation.navigate('DuaScreen');
               }}
             >
-              <Text style={styles.fullDetailButtonText}>Tüm Duaları Gör</Text>
+              <Text style={styles.fullDetailButtonText}>{t('home.allDuas')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -921,7 +925,7 @@ export default function HomeScreen() {
               {/* Header */}
               <View style={styles.shareImageHeader}>
                 <Text style={styles.shareImageIcon}>📖</Text>
-                <Text style={styles.shareImageTitle}>GÜNÜN HADİSİ</Text>
+                <Text style={styles.shareImageTitle}>{t('home.dailyHadith')}</Text>
               </View>
 
               {/* Title */}
@@ -933,7 +937,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageSection}>
                 <View style={styles.shareImageSectionHeader}>
                   <View style={styles.shareImageLine} />
-                  <Text style={styles.shareImageSectionTitle}>Arapça</Text>
+                  <Text style={styles.shareImageSectionTitle}>{t('home.shareSectionArabic')}</Text>
                   <View style={styles.shareImageLine} />
                 </View>
                 <Text style={styles.shareImageArabic}>{dailyHadis?.arabic}</Text>
@@ -943,7 +947,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageSection}>
                 <View style={styles.shareImageSectionHeader}>
                   <View style={styles.shareImageLine} />
-                  <Text style={styles.shareImageSectionTitle}>Türkçe Meali</Text>
+                  <Text style={styles.shareImageSectionTitle}>{t('home.shareSectionTurkishMeaning')}</Text>
                   <View style={styles.shareImageLine} />
                 </View>
                 <Text style={styles.shareImageTurkish}>{dailyHadis?.turkish}</Text>
@@ -953,7 +957,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageFooter}>
                 <Text style={styles.shareImageSource}>📚 {dailyHadis?.source}</Text>
                 <View style={styles.shareImageBranding}>
-                  <Text style={styles.shareImageBrandText}>🕌 İslami Hayat</Text>
+                  <Text style={styles.shareImageBrandText}>🕌 Vakitçim</Text>
                 </View>
               </View>
             </View>
@@ -971,20 +975,20 @@ export default function HomeScreen() {
             
             <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>ARAPÇA</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionArabic')}</Text>
                 <Text style={styles.modalArabic}>{dailyHadis?.arabic}</Text>
               </View>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>TÜRKÇE</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionTurkish')}</Text>
                 <Text style={styles.modalTurkish}>{dailyHadis?.turkish}</Text>
               </View>
               <View style={styles.modalSection}>
-                <Text style={styles.modalSectionLabel}>KAYNAK</Text>
+                <Text style={styles.modalSectionLabel}>{t('home.modalSectionSource')}</Text>
                 <Text style={styles.modalSource}>📚 {dailyHadis?.source}</Text>
               </View>
               {dailyHadis?.explanation && (
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionLabel}>AÇIKLAMA</Text>
+                  <Text style={styles.modalSectionLabel}>{t('home.modalSectionExplanation')}</Text>
                   <Text style={styles.modalMeaning}>{dailyHadis.explanation}</Text>
                 </View>
               )}
@@ -1000,7 +1004,7 @@ export default function HomeScreen() {
                   {isHadisFavorite ? '❤️' : '🤍'}
                 </Text>
                 <Text style={styles.actionButtonText}>
-                  {isHadisFavorite ? 'Favorilerde' : 'Favorilere Ekle'}
+                  {isHadisFavorite ? t('home.favoriteInList') : t('home.addToFavorites')}
                 </Text>
               </TouchableOpacity>
 
@@ -1009,7 +1013,7 @@ export default function HomeScreen() {
                 onPress={() => handleShare('hadis', dailyHadis, hadisViewShotRef)}
               >
                 <Text style={styles.actionButtonIcon}>📤</Text>
-                <Text style={styles.actionButtonText}>Paylaş</Text>
+                <Text style={styles.actionButtonText}>{t('home.shareAction')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1020,7 +1024,7 @@ export default function HomeScreen() {
                 navigation.navigate('HadisScreen');
               }}
             >
-              <Text style={styles.fullDetailButtonText}>Tüm Hadisleri Gör</Text>
+              <Text style={styles.fullDetailButtonText}>{t('home.allHadiths')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1032,7 +1036,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   backgroundImage: {
     borderBottomLeftRadius: 30,
@@ -1661,6 +1665,7 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
   },
 });
+
 
 
 

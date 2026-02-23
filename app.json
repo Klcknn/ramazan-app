@@ -1,10 +1,10 @@
-{
+﻿{
   "expo": {
-    "name": "RamazanApp",
-    "slug": "RamazanApp",
+    "name": "Vakitçim",
+    "slug": "vakitcim",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/App_logo.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
@@ -17,7 +17,7 @@
       "package": "com.ramazan.app",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/icon.png",
+        "foregroundImage": "./assets/images/App_logo.png",
         "backgroundColor": "#00897B"
       },
       "permissions": [
@@ -44,3 +44,4 @@
     }
   }
 }
+

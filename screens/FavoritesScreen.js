@@ -12,10 +12,14 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalization } from '../context/LocalizationContext';
+import { useAppTheme } from '../hooks/use-app-theme';
 
 export default function FavoritesScreen({ navigation }) {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const theme = useAppTheme();
+  const { t } = useLocalization();
 
   useEffect(() => {
     loadFavorites();
@@ -50,10 +54,10 @@ export default function FavoritesScreen({ navigation }) {
 
   const removeFavorite = async (item) => {
     Alert.alert(
-      'Favorilerden Kaldır',
-      `${item.title} favorilerden kaldırılsın mı?`,
+      t('favorites.remove'),
+      `${item.title} ${t('favorites.remove')}?`,
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
           text: 'Kaldır',
           style: 'destructive',
@@ -64,10 +68,10 @@ export default function FavoritesScreen({ navigation }) {
               );
               await AsyncStorage.setItem('favorites', JSON.stringify(updatedFavorites));
               setFavorites(updatedFavorites);
-              Alert.alert('Başarılı', 'Favorilerden kaldırıldı');
+              Alert.alert(t('common.success'), t('home.favoriteRemoved'));
             } catch (error) {
               console.error('Favori kaldırma hatası:', error);
-              Alert.alert('Hata', 'Favorilerden kaldırılırken bir hata oluştu');
+              Alert.alert(t('common.error'), t('home.favoriteError'));
             }
           }
         }
@@ -106,22 +110,22 @@ export default function FavoritesScreen({ navigation }) {
     const isDua = item.type === 'dua';
     
     return (
-      <View style={styles.favoriteCard}>
+      <View style={[styles.favoriteCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={styles.favoriteHeader}>
           <View style={[
             styles.favoriteIconContainer,
-            { backgroundColor: isDua ? '#E0F2F1' : '#FFF8E1' }
+            { backgroundColor: isDua ? (theme.darkMode ? '#234742' : '#E0F2F1') : (theme.darkMode ? '#4a3d20' : '#FFF8E1') }
           ]}>
             <Text style={styles.favoriteIcon}>{isDua ? '🤲' : '📖'}</Text>
           </View>
           <View style={styles.favoriteTitleContainer}>
-            <Text style={styles.favoriteType}>
-              {isDua ? 'DUA' : 'HADİS'}
+            <Text style={[styles.favoriteType, { color: theme.accent }]}>
+              {isDua ? t('favorites.dua') : t('favorites.hadis')}
             </Text>
-            <Text style={styles.favoriteTitle} numberOfLines={1}>
+            <Text style={[styles.favoriteTitle, { color: theme.text }]} numberOfLines={1}>
               {item.title}
             </Text>
-            <Text style={styles.favoriteDate}>
+            <Text style={[styles.favoriteDate, { color: theme.textMuted }]}>
               {new Date(item.addedAt).toLocaleDateString('tr-TR', {
                 day: 'numeric',
                 month: 'long',
@@ -131,7 +135,7 @@ export default function FavoritesScreen({ navigation }) {
           </View>
         </View>
 
-        <Text style={styles.favoritePreview} numberOfLines={2}>
+        <Text style={[styles.favoritePreview, { color: theme.textMuted }]} numberOfLines={2}>
           {item.content.turkish}
         </Text>
 
@@ -141,7 +145,7 @@ export default function FavoritesScreen({ navigation }) {
             onPress={() => shareFavorite(item)}
           >
             <Text style={styles.actionButtonIcon}>📤</Text>
-            <Text style={styles.actionButtonText}>Paylaş</Text>
+            <Text style={[styles.actionButtonText, { color: theme.text }]}>{t('favorites.share')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -149,7 +153,7 @@ export default function FavoritesScreen({ navigation }) {
             onPress={() => removeFavorite(item)}
           >
             <Text style={styles.actionButtonIcon}>🗑️</Text>
-            <Text style={styles.actionButtonText}>Kaldır</Text>
+            <Text style={[styles.actionButtonText, { color: theme.text }]}>{t('favorites.remove')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -158,17 +162,17 @@ export default function FavoritesScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#00897B" />
-        <Text style={styles.loadingText}>Favoriler yükleniyor...</Text>
+        <Text style={[styles.loadingText, { color: theme.textMuted }]}>{t('common.loading')}</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <LinearGradient
-        colors={['#00897B', '#26A69A', '#4DB6AC']}
+        colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.header}
@@ -176,24 +180,20 @@ export default function FavoritesScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation?.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Favorilerim</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('favorites.title')}</Text>
         <View style={{ width: 24 }} />
       </LinearGradient>
 
       {favorites.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, { backgroundColor: theme.surface }]}>
           <Text style={styles.emptyIcon}>❤️</Text>
-          <Text style={styles.emptyTitle}>Henüz favori eklemediniz</Text>
-          <Text style={styles.emptySubtitle}>
-            Günün duası veya hadisini favorilere ekleyerek daha sonra kolayca erişebilirsiniz
-          </Text>
+          <Text style={[styles.emptyTitle, { color: theme.text }]}>{t('favorites.empty')}</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t('favorites.emptyDesc')}</Text>
         </View>
       ) : (
         <>
-          <View style={styles.statsContainer}>
-            <Text style={styles.statsText}>
-              Toplam {favorites.length} favori
-            </Text>
+          <View style={[styles.statsContainer, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.statsText, { color: theme.textMuted }]}>{t('favorites.total')} {favorites.length}</Text>
           </View>
           
           <FlatList
@@ -212,7 +212,7 @@ export default function FavoritesScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',

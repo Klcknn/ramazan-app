@@ -1,4 +1,4 @@
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
@@ -21,9 +21,10 @@ import ViewShot from 'react-native-view-shot';
 // Firebase Web SDK import
 import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 import { db } from '../config/firebase'; // Firebase config dosyanızın yolu
+import { useAppearance } from '../context/AppearanceContext';
 
 const DuaScreen = ({ navigation }) => {
-  const [isDarkMode] = useState(false); // Karanlık mod kapalı
+  const { darkMode: isDarkMode } = useAppearance();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [selectedDua, setSelectedDua] = useState(null);
@@ -607,7 +608,7 @@ const DuaScreen = ({ navigation }) => {
                 </View>
                 
                 {/* Footer */}
-                <Text style={styles.shareFooter}>🌙 Ramazan Uygulaması</Text>
+                <Text style={styles.shareFooter}>🌙 Vakitçim</Text>
               </LinearGradient>
             </ViewShot>
           </View>
@@ -950,3 +951,6 @@ const styles = StyleSheet.create({
 });
 
 export default DuaScreen;
+
+
+
