@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+﻿import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -260,26 +260,27 @@ export default function ImportantDaysScreen({ navigation }) {
         {importantDays.map((day, index) => (
           <TouchableOpacity
             key={index}
-              style={[styles.dayRow, { backgroundColor: theme.surface }, day.isPast && styles.dayRowPast]}
+              style={[styles.dayRow, { backgroundColor: theme.surface }, day.isPast && styles.dayRowPast, day.isPast && theme.darkMode && styles.dayRowPastDark]}
             onPress={() => handleDayPress(day)}
             activeOpacity={0.7}
           >
             <View style={[
               styles.dayIconContainer,
               day.isPast && styles.dayIconContainerPast,
+              day.isPast && theme.darkMode && styles.dayIconContainerPastDark,
             ]}>
               <Text style={styles.dayIcon}>{day.icon}</Text>
             </View>
 
             <View style={styles.dayInfo}>
-              <Text style={[styles.dayName, { color: theme.text }, day.isPast && styles.dayNamePast]}>
+              <Text style={[styles.dayName, { color: theme.text }, day.isPast && styles.dayNamePast, day.isPast && theme.darkMode && styles.dayNamePastDark]}>
                 {day.name}
               </Text>
-              <Text style={[styles.dayDate, { color: theme.textMuted }, day.isPast && styles.dayDatePast]}>
+              <Text style={[styles.dayDate, { color: theme.textMuted }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
                 📅 {day.formattedDate}
               </Text>
               {day.duration && (
-                <Text style={[styles.dayDuration, { color: theme.textMuted }, day.isPast && styles.dayDatePast]}>
+                <Text style={[styles.dayDuration, { color: theme.textMuted }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
                   ⏰ {day.duration}
                 </Text>
               )}
@@ -288,12 +289,14 @@ export default function ImportantDaysScreen({ navigation }) {
             <View style={[
               styles.dayBadge,
               day.isPast && styles.dayBadgePast,
+              day.isPast && theme.darkMode && styles.dayBadgePastDark,
               day.isToday && styles.dayBadgeToday,
               day.isTomorrow && styles.dayBadgeTomorrow,
             ]}>
               <Text style={[
                 styles.dayBadgeText,
                 day.isPast && styles.dayBadgeTextPast,
+                day.isPast && theme.darkMode && styles.dayBadgeTextPastDark,
               ]}>
                 {getDaysLeftText(day)}
               </Text>
@@ -449,6 +452,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     opacity: 0.6,
   },
+  dayRowPastDark: {
+    backgroundColor: '#2a2a2a',
+    opacity: 1,
+  },
   dayIconContainer: {
     width: 46,
     height: 46,
@@ -460,6 +467,9 @@ const styles = StyleSheet.create({
   },
   dayIconContainerPast: {
     backgroundColor: '#E0E0E0',
+  },
+  dayIconContainerPastDark: {
+    backgroundColor: '#3a3a3a',
   },
   dayIcon: {
     fontSize: 22,
@@ -476,6 +486,9 @@ const styles = StyleSheet.create({
   dayNamePast: {
     color: '#999',
   },
+  dayNamePastDark: {
+    color: '#FFFFFF',
+  },
   dayDate: {
     fontSize: 13,
     color: '#666',
@@ -483,6 +496,9 @@ const styles = StyleSheet.create({
   },
   dayDatePast: {
     color: '#999',
+  },
+  dayDatePastDark: {
+    color: '#E5E7EB',
   },
   dayDuration: {
     fontSize: 12,
@@ -498,6 +514,9 @@ const styles = StyleSheet.create({
   dayBadgePast: {
     backgroundColor: '#E0E0E0',
   },
+  dayBadgePastDark: {
+    backgroundColor: '#3f3f46',
+  },
   dayBadgeToday: {
     backgroundColor: '#4CAF50',
   },
@@ -511,6 +530,9 @@ const styles = StyleSheet.create({
   },
   dayBadgeTextPast: {
     color: '#999',
+  },
+  dayBadgeTextPastDark: {
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,

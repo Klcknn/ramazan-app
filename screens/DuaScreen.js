@@ -393,7 +393,10 @@ const DuaScreen = ({ navigation }) => {
               style={[
                 styles.categoryButton,
                 selectedCategory === item.name && styles.categoryButtonActive,
-                { borderColor: theme.border },
+                {
+                  borderColor:
+                    selectedCategory !== item.name && isDarkMode ? '#FFFFFF' : theme.border,
+                },
               ]}
               onPress={() => handleCategoryChange(item.name)}
               activeOpacity={0.7}

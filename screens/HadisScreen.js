@@ -374,7 +374,9 @@ const HadisScreen = ({ navigation }) => {
               style={[
                 styles.categoryButton,
                 selectedCategory === item.name && styles.categoryButtonActive,
-                { borderColor: theme.border },
+                selectedCategory !== item.name && isDarkMode
+                  ? { borderColor: '#FFFFFF', backgroundColor: 'rgba(255, 255, 255, 0.08)' }
+                  : { borderColor: theme.border },
               ]}
               onPress={() => handleCategoryChange(item.name)}
               activeOpacity={0.7}

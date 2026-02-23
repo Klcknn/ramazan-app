@@ -561,7 +561,11 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <ImageBackground
+      source={require('../assets/images/islamic-pattern.jpg')}
+      style={styles.container}
+      resizeMode="repeat"
+    >
       <ImageBackground 
         source={HEADER_IMAGES[currentImageIndex]} 
         style={styles.backgroundImage} 
@@ -1029,7 +1033,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </ImageBackground>
   );
 }
 
@@ -1665,7 +1669,6 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
   },
 });
-
 
 
 

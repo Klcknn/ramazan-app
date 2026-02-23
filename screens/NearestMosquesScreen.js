@@ -7,6 +7,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  ImageBackground,
   Linking,
   PanResponder,
   Platform,
@@ -414,7 +415,11 @@ const NearestMosquesScreen = ({ navigation }) => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background }]}>
+    <ImageBackground
+      source={require('../assets/images/islamic-pattern.jpg')}
+      style={[styles.container, { backgroundColor: theme.background }]}
+      resizeMode="repeat"
+    >
       {/* Header */}
       <LinearGradient
         colors={theme.headerGradient}
@@ -574,7 +579,7 @@ const NearestMosquesScreen = ({ navigation }) => {
           }
         />
       )}
-    </View>
+    </ImageBackground>
   );
 };
 

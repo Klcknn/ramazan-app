@@ -331,10 +331,12 @@ const RamadanCalendarScreen = ({ navigation }) => {
       setDistricts(mappedDistricts);
 
       if (autoSelect && mappedDistricts.length > 0) {
-        const centerDistrict =
-          mappedDistricts.find((item) => normalizeText(item.name).includes('merkez')) ||
-          mappedDistricts[0];
-        setSelectedDistrict(centerDistrict);
+        const defaultDistrict =
+          normalizeText(provinceName) === 'kars'
+            ? mappedDistricts.find((item) => normalizeText(item.name) === 'kars')
+            : mappedDistricts.find((item) => normalizeText(item.name).includes('merkez'));
+
+        setSelectedDistrict(defaultDistrict || mappedDistricts[0]);
       }
     } catch (error) {
       console.error('İlçe verisi çekilemedi:', error);
@@ -410,19 +412,22 @@ const RamadanCalendarScreen = ({ navigation }) => {
 
   const renderDay = ({ item }) => {
     const isActiveDay = item.fullDate === todayKey;
+    const activeDarkTextColor = '#111111';
+    const listTextColor = isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : theme.text;
+    const listSubTextColor = isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : theme.textMuted;
 
     return (
     <View style={[styles.dayCard, { backgroundColor: theme.surface }, isActiveDay && styles.activeDayCard]}>
       <View style={styles.cardContent}>
-        <Text style={[styles.dayNumber, { color: theme.text }, isActiveDay && styles.activeDayNumber]}>{item.day}</Text>
+        <Text style={[styles.dayNumber, { color: listTextColor }, isActiveDay && !theme.darkMode && styles.activeDayNumber]}>{item.day}</Text>
 
         <View style={styles.dateInfo}>
-          <Text style={[styles.dateText, { color: theme.textMuted }, isActiveDay && styles.activeDateText]}>{item.date}</Text>
-          <Text style={[styles.dayNameText, { color: theme.textMuted }, isActiveDay && styles.activeDayNameText]}>{item.dayName}</Text>
+          <Text style={[styles.dateText, { color: listSubTextColor }, isActiveDay && !theme.darkMode && styles.activeDateText]}>{item.date}</Text>
+          <Text style={[styles.dayNameText, { color: listSubTextColor }, isActiveDay && !theme.darkMode && styles.activeDayNameText]}>{item.dayName}</Text>
         </View>
 
-        <Text style={[styles.sahurTime, isActiveDay && styles.activeSahurTime]}>{item.sahur}</Text>
-        <Text style={[styles.iftarTime, isActiveDay && styles.activeIftarTime]}>{item.iftar}</Text>
+        <Text style={[styles.sahurTime, { color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#333' }, isActiveDay && !theme.darkMode && styles.activeSahurTime]}>{item.sahur}</Text>
+        <Text style={[styles.iftarTime, { color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#14b8a6' }, isActiveDay && !theme.darkMode && styles.activeIftarTime]}>{item.iftar}</Text>
       </View>
     </View>
     );

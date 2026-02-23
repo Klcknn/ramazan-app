@@ -88,7 +88,7 @@ const TEXT = {
       faqTitle: 'SSS',
       faqSoon: 'Sıkça sorulan sorular bölümü yakında eklenecek',
       feedbackTitle: 'Geri Bildirim',
-      feedbackBody: 'Öneri ve şikayetleriniz için: iletisim@islamiuygulama.com',
+      feedbackBody: 'Öneri ve şikayetleriniz için: Kenanklc.76@gmail.com',
       rateThanksTitle: 'Teşekkürler!',
       rateThanksBody: 'Değerlendirmeniz bizim için çok önemli',
       aboutTitle: 'Vakitçim',
@@ -331,4 +331,3 @@ export const LocalizationProvider = ({ children }) => {
 };
 
 export const useLocalization = () => useContext(LocalizationContext);
-
