@@ -1,35 +1,64 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { collection, getDocs, limit, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 /**
- * Günlük içerik servisi
- * Firebase'den günün duası ve hadisini çeker
+ * Gunluk icerik servisi
+ * Firebase'den gunun duasi ve hadisini ceker
  */
 
 // Cache keys
 const DAILY_DUA_KEY = '@daily_dua';
 const DAILY_HADIS_KEY = '@daily_hadis';
-const LAST_FETCH_DATE_KEY = '@last_fetch_date';
+const LAST_FETCH_AT_KEY = '@last_fetch_at';
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Bugünün tarihini YYYY-MM-DD formatında döner
+ * Bugunun tarihini YYYY-MM-DD formatinda doner (lokal saat)
  */
 const getTodayDate = () => {
   const today = new Date();
-  return today.toISOString().split('T')[0]; // YYYY-MM-DD
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 /**
- * Cache'den günlük içeriği al
+ * Metni deterministic bir sayiya cevir
+ */
+const hashString = (value) => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+/**
+ * Icerik listesinden gunluk deterministic secim yap
+ */
+const pickDailyItem = (items) => {
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  const seed = getTodayDate();
+  const index = hashString(seed) % items.length;
+  return items[index];
+};
+
+/**
+ * Cache'den gunluk icerigi al
  */
 const getCachedContent = async () => {
   try {
-    const lastFetchDate = await AsyncStorage.getItem(LAST_FETCH_DATE_KEY);
-    const todayDate = getTodayDate();
+    const lastFetchAtRaw = await AsyncStorage.getItem(LAST_FETCH_AT_KEY);
+    const lastFetchAt = Number(lastFetchAtRaw);
 
-    // Eğer bugün çekilmediyse cache geçersiz
-    if (lastFetchDate !== todayDate) {
+    // Son cekim zamani yoksa veya 24 saati asmissa cache gecersiz
+    if (!lastFetchAt || Number.isNaN(lastFetchAt) || Date.now() - lastFetchAt >= CACHE_TTL_MS) {
       return null;
     }
 
@@ -47,110 +76,117 @@ const getCachedContent = async () => {
       hadis: JSON.parse(cachedHadis),
     };
   } catch (error) {
-    console.error('Cache okuma hatası:', error);
+    console.error('Cache okuma hatasi:', error);
     return null;
   }
 };
 
 /**
- * Günlük içeriği cache'e kaydet
+ * Gunluk icerigi cache'e kaydet
  */
 const cacheContent = async (dua, hadis) => {
   try {
-    const todayDate = getTodayDate();
     await Promise.all([
       AsyncStorage.setItem(DAILY_DUA_KEY, JSON.stringify(dua)),
       AsyncStorage.setItem(DAILY_HADIS_KEY, JSON.stringify(hadis)),
-      AsyncStorage.setItem(LAST_FETCH_DATE_KEY, todayDate),
+      AsyncStorage.setItem(LAST_FETCH_AT_KEY, String(Date.now())),
     ]);
-    console.log('✅ Günlük içerik cache\'e kaydedildi');
+    console.log('Gunluk icerik cache\'e kaydedildi');
   } catch (error) {
-    console.error('Cache yazma hatası:', error);
+    console.error('Cache yazma hatasi:', error);
   }
 };
 
 /**
- * Firebase'den günlük duayı çek
+ * Firebase'den gunluk duayi cek
  */
 const fetchDailyDua = async () => {
   try {
-    console.log('🔥 Firebase\'den günlük dua çekiliyor...');
-    
+    console.log('Firebase\'den gunluk dua cekiliyor...');
+
     const duasCollection = collection(db, 'duas');
-    const duasQuery = query(duasCollection, orderBy('order', 'asc'), limit(1));
-    const duasSnapshot = await getDocs(duasQuery);
+    const duasSnapshot = await getDocs(duasCollection);
 
     if (duasSnapshot.empty) {
-      console.warn('⚠️ Firebase\'de dua bulunamadı');
+      console.warn('Firebase\'de dua bulunamadi');
       return null;
     }
 
-    const duaData = duasSnapshot.docs[0].data();
-    const dua = {
-      id: duasSnapshot.docs[0].id,
-      ...duaData,
-    };
+    const allDuas = [];
+    duasSnapshot.forEach((docItem) => {
+      allDuas.push({
+        id: docItem.id,
+        ...docItem.data(),
+      });
+    });
 
-    console.log('✅ Günlük dua yüklendi:', dua.title);
+    allDuas.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const dua = pickDailyItem(allDuas);
+
+    console.log('Gunluk dua yuklendi:', dua?.title);
     return dua;
   } catch (error) {
-    console.error('❌ Dua çekme hatası:', error);
+    console.error('Dua cekme hatasi:', error);
     throw error;
   }
 };
 
 /**
- * Firebase'den günlük hadisi çek
+ * Firebase'den gunluk hadisi cek
  */
 const fetchDailyHadis = async () => {
   try {
-    console.log('🔥 Firebase\'den günlük hadis çekiliyor...');
-    
+    console.log('Firebase\'den gunluk hadis cekiliyor...');
+
     const hadislerCollection = collection(db, 'hadisler');
-    const hadislerQuery = query(hadislerCollection, orderBy('order', 'asc'), limit(1));
-    const hadislerSnapshot = await getDocs(hadislerQuery);
+    const hadislerSnapshot = await getDocs(hadislerCollection);
 
     if (hadislerSnapshot.empty) {
-      console.warn('⚠️ Firebase\'de hadis bulunamadı');
+      console.warn('Firebase\'de hadis bulunamadi');
       return null;
     }
 
-    const hadisData = hadislerSnapshot.docs[0].data();
-    const hadis = {
-      id: hadislerSnapshot.docs[0].id,
-      ...hadisData,
-    };
+    const allHadisler = [];
+    hadislerSnapshot.forEach((docItem) => {
+      allHadisler.push({
+        id: docItem.id,
+        ...docItem.data(),
+      });
+    });
 
-    console.log('✅ Günlük hadis yüklendi:', hadis.title);
+    allHadisler.sort((a, b) => (a.order || 0) - (b.order || 0));
+    const hadis = pickDailyItem(allHadisler);
+
+    console.log('Gunluk hadis yuklendi:', hadis?.title);
     return hadis;
   } catch (error) {
-    console.error('❌ Hadis çekme hatası:', error);
+    console.error('Hadis cekme hatasi:', error);
     throw error;
   }
 };
 
 /**
- * Günlük içeriği getir (cache varsa cache'den, yoksa Firebase'den)
+ * Gunluk icerigi getir (cache varsa cache'den, yoksa Firebase'den)
  */
 export const fetchDailyContent = async () => {
   try {
-    // Önce cache'e bak
+    // Once cache'e bak
     const cached = await getCachedContent();
     if (cached) {
-      console.log('✅ Günlük içerik cache\'den geldi');
+      console.log('Gunluk icerik cache\'den geldi');
       return cached;
     }
 
-    // Cache yoksa Firebase'den çek
-    console.log('🔄 Cache bulunamadı, Firebase\'den çekiliyor...');
-    
+    // Cache yoksa Firebase'den cek
+    console.log('Cache bulunamadi, Firebase\'den cekiliyor...');
+
     const [dua, hadis] = await Promise.all([
       fetchDailyDua(),
       fetchDailyHadis(),
     ]);
 
     if (!dua || !hadis) {
-      throw new Error('Dua veya hadis bulunamadı');
+      throw new Error('Dua veya hadis bulunamadi');
     }
 
     // Cache'e kaydet
@@ -158,24 +194,24 @@ export const fetchDailyContent = async () => {
 
     return { dua, hadis };
   } catch (error) {
-    console.error('❌ Günlük içerik hatası:', error);
+    console.error('Gunluk icerik hatasi:', error);
     throw error;
   }
 };
 
 /**
- * Cache'i temizle (test için)
+ * Cache'i temizle (test icin)
  */
 export const clearDailyContentCache = async () => {
   try {
     await Promise.all([
       AsyncStorage.removeItem(DAILY_DUA_KEY),
       AsyncStorage.removeItem(DAILY_HADIS_KEY),
-      AsyncStorage.removeItem(LAST_FETCH_DATE_KEY),
+      AsyncStorage.removeItem(LAST_FETCH_AT_KEY),
     ]);
-    console.log('✅ Günlük içerik cache\'i temizlendi');
+    console.log('Gunluk icerik cache\'i temizlendi');
   } catch (error) {
-    console.error('Cache temizleme hatası:', error);
+    console.error('Cache temizleme hatasi:', error);
   }
 };
 
@@ -186,7 +222,7 @@ export const fetchRandomDua = async () => {
   try {
     const duasCollection = collection(db, 'duas');
     const querySnapshot = await getDocs(duasCollection);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
@@ -199,11 +235,11 @@ export const fetchRandomDua = async () => {
       });
     });
 
-    // Rastgele seç
+    // Rastgele sec
     const randomIndex = Math.floor(Math.random() * allDuas.length);
     return allDuas[randomIndex];
   } catch (error) {
-    console.error('Rastgele dua hatası:', error);
+    console.error('Rastgele dua hatasi:', error);
     throw error;
   }
 };
@@ -215,7 +251,7 @@ export const fetchRandomHadis = async () => {
   try {
     const hadislerCollection = collection(db, 'hadisler');
     const querySnapshot = await getDocs(hadislerCollection);
-    
+
     if (querySnapshot.empty) {
       return null;
     }
@@ -228,11 +264,11 @@ export const fetchRandomHadis = async () => {
       });
     });
 
-    // Rastgele seç
+    // Rastgele sec
     const randomIndex = Math.floor(Math.random() * allHadisler.length);
     return allHadisler[randomIndex];
   } catch (error) {
-    console.error('Rastgele hadis hatası:', error);
+    console.error('Rastgele hadis hatasi:', error);
     throw error;
   }
 };

@@ -1,5 +1,6 @@
 ﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import * as Speech from 'expo-speech';
@@ -8,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   ImageBackground,
   Modal,
   ScrollView,
@@ -22,6 +24,18 @@ import ViewShot from 'react-native-view-shot';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAppearance } from '../context/AppearanceContext';
+
+const APP_LOGO = require('../assets/images/App_logo.png');
+
+const toShareFileName = (title, fallback = 'Hadis') => {
+  const raw = (title || fallback)
+    .toString()
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, ' ');
+  const safe = raw || fallback;
+  return safe.length >= 3 ? safe : `${safe}_img`;
+};
 
 const HadisScreen = ({ navigation }) => {
   const { darkMode: isDarkMode } = useAppearance();
@@ -237,11 +251,23 @@ const HadisScreen = ({ navigation }) => {
       }
 
       console.log('📸 Hadis görseli oluşturuluyor...');
-      const uri = await viewShotRef.current.capture();
-      console.log('✅ Görsel oluşturuldu:', uri);
+      const captureUri = await viewShotRef.current.capture({ format: 'jpg', quality: 0.95 });
+      const fileName = `${toShareFileName(hadis?.title, 'Hadis')}.jpg`;
+      let shareUri = captureUri;
+
+      if (FileSystem.cacheDirectory) {
+        const namedUri = `${FileSystem.cacheDirectory}${fileName}`;
+        const existingFile = await FileSystem.getInfoAsync(namedUri);
+        if (existingFile.exists) {
+          await FileSystem.deleteAsync(namedUri, { idempotent: true });
+        }
+        await FileSystem.copyAsync({ from: captureUri, to: namedUri });
+        shareUri = namedUri;
+      }
+      console.log('✅ Görsel oluşturuldu:', shareUri);
 
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(shareUri, {
           mimeType: 'image/jpeg',
           dialogTitle: `${hadis.title}`,
         });
@@ -588,7 +614,9 @@ const HadisScreen = ({ navigation }) => {
               </View>
               
               {/* Footer */}
-              <Text style={styles.shareFooter}>🌙 Vakitçim</Text>
+              <View style={styles.shareFooter}>
+                <Image source={APP_LOGO} style={styles.shareFooterLogo} resizeMode="contain" />
+              </View>
             </LinearGradient>
           </ViewShot>
         </View>
@@ -918,11 +946,12 @@ const styles = StyleSheet.create({
     marginTop: 30,
   },
   shareFooter: {
-    fontSize: 30,
-    fontWeight: '600',
-    color: '#689f38',
-    textAlign: 'center',
     marginTop: 35,
+    alignItems: 'center',
+  },
+  shareFooterLogo: {
+    width: 170,
+    height: 170,
   },
 });
 

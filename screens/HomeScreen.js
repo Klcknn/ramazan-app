@@ -1,10 +1,11 @@
-﻿import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
@@ -30,6 +31,17 @@ const HEADER_IMAGES = [
   require('../assets/images/header_cami3.jpg'),
   require('../assets/images/header_cami4.jpg'),
 ];
+const APP_LOGO = require('../assets/images/App_logo.png');
+
+const toShareFileName = (title, fallback) => {
+  const raw = (title || fallback || 'paylasim')
+    .toString()
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, ' ');
+  const safe = raw || fallback || 'paylasim';
+  return safe.length >= 3 ? safe : `${safe}_img`;
+};
 
 const LOCATION_STORAGE_KEYS = {
   USE_MANUAL: 'use_manual_location',
@@ -178,6 +190,7 @@ export default function HomeScreen() {
         const importantDays = await getImportantDaysForYear(new Date().getFullYear());
         await syncInAppNotifications({ prayerTimes, importantDays });
       }
+      await loadDailyContent();
       loadNotificationCount();
     });
     
@@ -286,11 +299,23 @@ export default function HomeScreen() {
       }
 
       // ViewShot ile JPEG olarak kaydet
-      const uri = await viewShotRef.current.capture();
+      const captureUri = await viewShotRef.current.capture({ format: 'jpg', quality: 0.95 });
+      const fileName = `${toShareFileName(content?.title, type === 'dua' ? 'Gunun Duasi' : 'Gunun Hadisi')}.jpg`;
+      let shareUri = captureUri;
+
+      if (FileSystem.cacheDirectory) {
+        const namedUri = `${FileSystem.cacheDirectory}${fileName}`;
+        const existingFile = await FileSystem.getInfoAsync(namedUri);
+        if (existingFile.exists) {
+          await FileSystem.deleteAsync(namedUri, { idempotent: true });
+        }
+        await FileSystem.copyAsync({ from: captureUri, to: namedUri });
+        shareUri = namedUri;
+      }
       
       // Paylaş
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, {
+        await Sharing.shareAsync(shareUri, {
           mimeType: 'image/jpeg',
           dialogTitle: type === 'dua' ? '🤲 Günün Duası' : '📖 Günün Hadisi',
         });
@@ -842,7 +867,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageFooter}>
                 <Text style={styles.shareImageSource}>📚 {dailyDua?.source}</Text>
                 <View style={styles.shareImageBranding}>
-                  <Text style={styles.shareImageBrandText}>🕌 Vakitçim</Text>
+                  <Image source={APP_LOGO} style={styles.shareImageBrandLogo} resizeMode="contain" />
                 </View>
               </View>
             </View>
@@ -961,7 +986,7 @@ export default function HomeScreen() {
               <View style={styles.shareImageFooter}>
                 <Text style={styles.shareImageSource}>📚 {dailyHadis?.source}</Text>
                 <View style={styles.shareImageBranding}>
-                  <Text style={styles.shareImageBrandText}>🕌 Vakitçim</Text>
+                  <Image source={APP_LOGO} style={styles.shareImageBrandLogo} resizeMode="contain" />
                 </View>
               </View>
             </View>
@@ -1662,15 +1687,8 @@ const styles = StyleSheet.create({
     borderTopColor: '#00897B',
     alignItems: 'center',
   },
-  shareImageBrandText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#00897B',
-    letterSpacing: 3,
+  shareImageBrandLogo: {
+    width: 180,
+    height: 180,
   },
 });
-
-
-
-
-
