@@ -1,4 +1,5 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -8,9 +9,11 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
 
@@ -18,6 +21,13 @@ export default function NotificationsScreen({ navigation }) {
   const [notifications, setNotifications] = useState([]);
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(width / 393, 0.92, 1.0);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const scaleText = (value) => Math.round(value * clamp(softScale, 0.92, 1.0));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
 
   const markAllAsRead = useCallback(async () => {
     try {
@@ -147,9 +157,9 @@ export default function NotificationsScreen({ navigation }) {
             <Text style={styles.notificationIcon}>{getNotificationIcon(item.type)}</Text>
           </View>
           <View style={styles.notificationContent}>
-            <Text style={[styles.notificationTitle, { color: theme.text }]}>{item.title}</Text>
-            <Text style={[styles.notificationBody, { color: theme.textMuted }]}>{item.body}</Text>
-            <Text style={[styles.notificationTime, { color: theme.textMuted }]}>{formatTime(item.timestamp)}</Text>
+            <Text style={[styles.notificationTitle, { color: theme.text, fontSize: scaleText(16) }]}>{item.title}</Text>
+            <Text style={[styles.notificationBody, { color: theme.textMuted, fontSize: scaleText(14) }]}>{item.body}</Text>
+            <Text style={[styles.notificationTime, { color: theme.textMuted, fontSize: scaleText(12) }]}>{formatTime(item.timestamp)}</Text>
           </View>
           <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(item.id)}>
             <Text style={[styles.deleteButtonText, { color: theme.textMuted }]}>×</Text>
@@ -161,20 +171,20 @@ export default function NotificationsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}> 
-      <LinearGradient colors={theme.headerGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.header}>
+      <LinearGradient colors={theme.headerGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.header, { paddingTop: headerTopPadding, paddingBottom: rs(14, 0.9), paddingHorizontal: rs(18, 0.9) }]}>
         <View style={styles.headerContent}>
           <TouchableOpacity onPress={() => navigation?.goBack()}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+            <Ionicons name="arrow-back" size={rs(24, 0.9)} color="#fff" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('notifications.title')}</Text>
-          <View style={{ width: 24 }} />
+          <Text style={[styles.headerTitle, { color: '#FFFFFF', fontSize: scaleText(20) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>{t('notifications.title')}</Text>
+          <View style={{ width: rs(24, 0.9) }} />
         </View>
 
         {notifications.length > 0 && (
           <View style={styles.headerStats}>
-            <Text style={styles.headerStatsText}>{notifications.length} bildirim</Text>
+            <Text style={[styles.headerStatsText, { fontSize: scaleText(13) }]}>{notifications.length} bildirim</Text>
             <TouchableOpacity onPress={clearAllNotifications}>
-              <Text style={styles.clearAllText}>{t('notifications.clearAll')}</Text>
+              <Text style={[styles.clearAllText, { fontSize: scaleText(13) }]}>{t('notifications.clearAll')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -199,7 +209,7 @@ export default function NotificationsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -346,3 +356,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
+

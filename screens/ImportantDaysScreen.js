@@ -1,13 +1,22 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
 
 export default function ImportantDaysScreen({ navigation }) {
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(width / 393, 0.92, 1.0);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const scaleText = (value) => Math.round(value * clamp(softScale, 0.92, 1.0));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [importantDays, setImportantDays] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
@@ -216,13 +225,13 @@ export default function ImportantDaysScreen({ navigation }) {
         colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[styles.header, { paddingHorizontal: rs(15, 0.9), paddingVertical: rs(14, 0.9), paddingTop: headerTopPadding }]}
       >
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={rs(24, 0.9)} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.importantDays')}</Text>
-        <View style={{ width: 24 }} />
+        <Text style={[styles.headerTitle, { color: '#FFFFFF', fontSize: scaleText(20) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>{t('headers.importantDays')}</Text>
+        <View style={{ width: rs(24, 0.9) }} />
       </LinearGradient>
 
       {/* Yıl Seçici */}
@@ -241,7 +250,7 @@ export default function ImportantDaysScreen({ navigation }) {
             >
               <Text style={[
                 styles.yearChipText,
-                { color: theme.textMuted },
+                { color: theme.textMuted, fontSize: scaleText(14) },
                 selectedYear === year && styles.yearChipTextActive,
               ]}>
                 {year}
@@ -273,14 +282,14 @@ export default function ImportantDaysScreen({ navigation }) {
             </View>
 
             <View style={styles.dayInfo}>
-              <Text style={[styles.dayName, { color: theme.text }, day.isPast && styles.dayNamePast, day.isPast && theme.darkMode && styles.dayNamePastDark]}>
+              <Text style={[styles.dayName, { color: theme.text, fontSize: scaleText(16) }, day.isPast && styles.dayNamePast, day.isPast && theme.darkMode && styles.dayNamePastDark]}>
                 {day.name}
               </Text>
-              <Text style={[styles.dayDate, { color: theme.textMuted }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
+              <Text style={[styles.dayDate, { color: theme.textMuted, fontSize: scaleText(13) }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
                 📅 {day.formattedDate}
               </Text>
               {day.duration && (
-                <Text style={[styles.dayDuration, { color: theme.textMuted }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
+                <Text style={[styles.dayDuration, { color: theme.textMuted, fontSize: scaleText(12) }, day.isPast && styles.dayDatePast, day.isPast && theme.darkMode && styles.dayDatePastDark]}>
                   ⏰ {day.duration}
                 </Text>
               )}
@@ -371,7 +380,7 @@ export default function ImportantDaysScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -646,5 +655,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+
+
+
+
 
 

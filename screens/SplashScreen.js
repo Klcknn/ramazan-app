@@ -1,7 +1,7 @@
 ﻿import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef } from 'react';
 import { Animated, Image, StyleSheet, Text, View } from 'react-native';
-
+import { createResponsiveStyles } from '../hooks/responsive-styles';
 export default function SplashScreen({ onFinish }) {
   const logoOpacity = useRef(new Animated.Value(1)).current;
 
@@ -46,7 +46,7 @@ export default function SplashScreen({ onFinish }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -72,4 +72,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
+
+
 

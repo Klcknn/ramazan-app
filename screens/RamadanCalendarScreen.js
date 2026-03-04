@@ -1,4 +1,5 @@
-﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -13,21 +14,42 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
 
 const RamadanCalendarScreen = ({ navigation }) => {
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(width / 393, 0.92, 1.05);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const textScale = clamp(softScale, 0.92, 1.0);
+  const scaleText = (value) => Math.round(value * textScale);
+  const listBottomPadding = Math.max(rs(118, 1), insets.bottom + rs(104, 1));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
+  const dayColWidth = rs(52, 0.95);
+  const timeColWidth = rs(74, 0.95);
+  const rowEstimatedHeight = rs(74, 0.9);
+  const modalTopMargin = Math.max(insets.top + rs(8, 0.9), rs(44, 0.9));
+  const modalMaxHeight = Math.min(
+    Math.round(height * 0.82),
+    height - modalTopMargin - insets.bottom - rs(12, 0.8)
+  );
+  const modalRowMaxWidth = Math.min(Math.round(width * 0.84), 480);
+  const modalRowVerticalPadding = clamp(Math.round(width * 0.016), 6, 10);
+  const modalRowHorizontalPadding = clamp(Math.round(width * 0.04), 14, 20);
   // Aladhan-Diyanet tarih farkı görülen yıllar için gösterim düzeltmesi (gün)
   const YEAR_DISPLAY_SHIFT_DAYS = {
     2026: 1,
-    2027: 1,
-    2028: 1,
-    2029: 1,
-    2030: 1,
+  };
+  const OFFICIAL_RAMADAN_DAY_COUNT_BY_YEAR = {
+    2026: 29,
   };
 
   const formatDateKey = (date) => {
@@ -37,8 +59,9 @@ const RamadanCalendarScreen = ({ navigation }) => {
     return `${year}-${month}-${day}`;
   };
 
+  const availableYears = [2026, 2027, 2028, 2029, 2030];
   const currentYear = new Date().getFullYear();
-  const availableYears = Array.from({ length: 5 }, (_, index) => currentYear + index);
+  const initialYear = availableYears.includes(currentYear) ? currentYear : 2026;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProvince, setSelectedProvince] = useState({ name: 'Kars', id: 9597 });
@@ -46,7 +69,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
   const [districts, setDistricts] = useState([]);
   const [modalStep, setModalStep] = useState('province');
   const [loadingDistricts, setLoadingDistricts] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedYear, setSelectedYear] = useState(initialYear);
   const [ramadanDays, setRamadanDays] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
@@ -171,7 +194,13 @@ const RamadanCalendarScreen = ({ navigation }) => {
     return new Date(gYear, gMonth, gDay);
   };
 
-  const fetchRamadanData = async (provinceName, districtName, year) => {
+  const formatDottedDateToKey = (value) => {
+    const [day, month, year] = String(value || '').split('.');
+    if (!day || !month || !year) return null;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const fetchRamadanData = async (provinceName, districtName, year, districtId) => {
     setLoading(true);
     const targetYear = year ?? selectedYear;
 
@@ -184,7 +213,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
         const districtQuery = encodeURIComponent(activeDistrict);
         const provinceQuery = encodeURIComponent(activeProvince);
         return fetch(
-          `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${districtQuery}&state=${provinceQuery}&country=Turkey&method=13`
+          `https://api.aladhan.com/v1/calendarByCity/${targetYear}/${month}?city=${provinceQuery}&state=${districtQuery}&country=Turkey&method=13`
         )
           .then((res) => res.json())
           .then((json) => {
@@ -200,6 +229,50 @@ const RamadanCalendarScreen = ({ navigation }) => {
 
       const monthResults = await Promise.all(monthRequests);
       const allDays = monthResults.flatMap((result) => (Array.isArray(result?.data) ? result.data : []));
+
+      let officialTimesByDate = {};
+      let officialTimesByRamadanDay = {};
+      const resolvedDistrictId =
+        districtId ||
+        selectedDistrict?.id ||
+        districts.find((item) => normalizeText(item?.name) === normalizeText(activeDistrict))?.id ||
+        cities.find((item) => normalizeText(item?.name) === normalizeText(activeProvince))?.id;
+      const mapOfficialTimes = (list) => {
+        if (!Array.isArray(list)) return;
+        officialTimesByDate = list.reduce((acc, entry) => {
+          const dateKey = formatDottedDateToKey(entry?.MiladiTarihKisa);
+          if (!dateKey) return acc;
+          if (acc[dateKey]) return acc;
+          acc[dateKey] = {
+            imsak: String(entry?.Imsak || '').slice(0, 5),
+            aksam: String(entry?.Aksam || '').slice(0, 5),
+          };
+          return acc;
+        }, {});
+
+        officialTimesByRamadanDay = list.reduce((acc, entry) => {
+          const [hijriDay, hijriMonth] = String(entry?.HicriTarihKisa || '')
+            .split('.')
+            .map((x) => Number(x));
+          if (hijriMonth !== 9 || !Number.isInteger(hijriDay)) return acc;
+          if (acc[hijriDay]) return acc;
+          acc[hijriDay] = {
+            imsak: String(entry?.Imsak || '').slice(0, 5),
+            aksam: String(entry?.Aksam || '').slice(0, 5),
+          };
+          return acc;
+        }, {});
+      };
+
+      if (resolvedDistrictId) {
+        try {
+          const officialRes = await fetch(`https://ezanvakti.emushaf.net/vakitler/${resolvedDistrictId}`);
+          const officialJson = await officialRes.json();
+          mapOfficialTimes(officialJson);
+        } catch (officialError) {
+          console.warn('Diyanet vakitleri alınamadı, Aladhan verisi kullanılacak:', officialError);
+        }
+      }
 
       const ramadanEntries = allDays
         .filter((item) => Number(item?.date?.hijri?.month?.number) === 9)
@@ -268,7 +341,27 @@ const RamadanCalendarScreen = ({ navigation }) => {
         throw new Error('Ramazan günleri listelenemedi.');
       }
 
-      const fullRamadanData = finalGroup.map((item, index) => {
+      const officialDayCount = OFFICIAL_RAMADAN_DAY_COUNT_BY_YEAR[targetYear];
+      const displayGroup = Number.isInteger(officialDayCount)
+        ? finalGroup.slice(0, officialDayCount)
+        : finalGroup;
+
+      // Diyanet vakitlerini seçili yılın Ramazan başlangıcına göre yeniden çek.
+      // İl/ilçe bazında doğru Ramazan dilimi alınarak gün kaymaları engellenir.
+      if (resolvedDistrictId && displayGroup.length > 0) {
+        const startDateKey = formatDateKey(getGregorianDate(displayGroup[0]));
+        try {
+          const scopedRes = await fetch(
+            `https://ezanvakti.emushaf.net/vakitler/${resolvedDistrictId}?date=${startDateKey}`
+          );
+          const scopedJson = await scopedRes.json();
+          mapOfficialTimes(scopedJson);
+        } catch (scopedError) {
+          console.warn('Yıl bazlı Diyanet vakitleri alınamadı, mevcut veriler kullanılacak:', scopedError);
+        }
+      }
+
+      const fullRamadanData = displayGroup.map((item, index) => {
         const gDate = getGregorianDate(item);
         const displayDate = new Date(gDate);
 
@@ -280,13 +373,28 @@ const RamadanCalendarScreen = ({ navigation }) => {
         const gDay = displayDate.getDate();
         const gMonth = displayDate.getMonth();
 
+        const sourceDateKey = formatDateKey(gDate);
+        const displayDateKey = formatDateKey(displayDate);
+        // 2026 gibi görüntü tarihi kaydırılan yıllarda, kullanıcıya gösterilen tarih ile
+        // Diyanet saatinin birebir eşleşmesi için önce displayDate anahtarını kullan.
+        const officialByDate = officialTimesByDate[displayDateKey] || officialTimesByDate[sourceDateKey];
+        const officialByRamadanDay = officialTimesByRamadanDay[index + 1];
+
         return {
           day: String(index + 1).padStart(2, '0'),
           date: `${gDay} ${monthNames[gMonth]}`,
           dayName: dayNames[displayDate.getDay()],
-          fullDate: formatDateKey(displayDate),
-          sahur: item?.timings?.Imsak?.split(' ')[0] || '--:--',
-          iftar: item?.timings?.Maghrib?.split(' ')[0] || '--:--',
+          fullDate: displayDateKey,
+          sahur:
+            officialByDate?.imsak ||
+            officialByRamadanDay?.imsak ||
+            item?.timings?.Imsak?.split(' ')[0] ||
+            '--:--',
+          iftar:
+            officialByDate?.aksam ||
+            officialByRamadanDay?.aksam ||
+            item?.timings?.Maghrib?.split(' ')[0] ||
+            '--:--',
         };
       });
 
@@ -350,7 +458,8 @@ const RamadanCalendarScreen = ({ navigation }) => {
     const ramadanStart = new Date(year, 1, 19);
     const data = [];
 
-    for (let i = 0; i < 30; i++) {
+    const daysCount = OFFICIAL_RAMADAN_DAY_COUNT_BY_YEAR[year] || 30;
+    for (let i = 0; i < daysCount; i++) {
       const currentDate = new Date(ramadanStart);
       currentDate.setDate(ramadanStart.getDate() + i);
 
@@ -379,12 +488,25 @@ const RamadanCalendarScreen = ({ navigation }) => {
 
   useEffect(() => {
     if (!selectedDistrict?.name) return;
-    fetchRamadanData(selectedProvince.name, selectedDistrict.name, selectedYear);
-  }, [selectedProvince.name, selectedDistrict?.name, selectedYear]);
+    fetchRamadanData(selectedProvince.name, selectedDistrict.name, selectedYear, selectedDistrict?.id);
+  }, [selectedProvince.name, selectedDistrict?.id, selectedDistrict?.name, selectedYear]);
 
   useEffect(() => {
-    listRef.current?.scrollToOffset({ offset: 0, animated: true });
-  }, [selectedYear, selectedProvince.name, selectedDistrict?.id]);
+    if (!ramadanDays.length || !listRef.current) return;
+
+    const activeIndex = ramadanDays.findIndex((item) => item.fullDate === todayKey);
+    const targetIndex = activeIndex >= 0 ? activeIndex : 0;
+
+    const timer = setTimeout(() => {
+      listRef.current?.scrollToIndex({
+        index: targetIndex,
+        animated: true,
+        viewPosition: 0.35,
+      });
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [ramadanDays, selectedDistrict?.id, selectedProvince.name, selectedYear, todayKey]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -418,16 +540,86 @@ const RamadanCalendarScreen = ({ navigation }) => {
 
     return (
     <View style={[styles.dayCard, { backgroundColor: theme.surface }, isActiveDay && styles.activeDayCard]}>
-      <View style={styles.cardContent}>
-        <Text style={[styles.dayNumber, { color: listTextColor }, isActiveDay && !theme.darkMode && styles.activeDayNumber]}>{item.day}</Text>
+      <View style={[styles.cardContent, { paddingHorizontal: rs(10, 0.95), paddingVertical: rs(7, 0.95), gap: rs(6, 0.9) }]}>
+        <Text
+          style={[
+            styles.dayNumber,
+            {
+              color: listTextColor,
+              fontSize: scaleText(18),
+              width: dayColWidth,
+              marginLeft: 0,
+              textAlign: 'center',
+            },
+            isActiveDay && !theme.darkMode && styles.activeDayNumber,
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.9}
+          allowFontScaling={false}
+        >
+          {item.day}
+        </Text>
 
-        <View style={styles.dateInfo}>
-          <Text style={[styles.dateText, { color: listSubTextColor }, isActiveDay && !theme.darkMode && styles.activeDateText]}>{item.date}</Text>
-          <Text style={[styles.dayNameText, { color: listSubTextColor }, isActiveDay && !theme.darkMode && styles.activeDayNameText]}>{item.dayName}</Text>
+        <View style={[styles.dateInfo, { marginLeft: 0, paddingHorizontal: 0 }]}>
+          <Text
+            style={[styles.dateText, { color: listSubTextColor, fontSize: scaleText(15), marginLeft: 0, textAlign: 'center' }, isActiveDay && !theme.darkMode && styles.activeDateText]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.88}
+            allowFontScaling={false}
+          >
+            {item.date}
+          </Text>
+          <Text
+            style={[styles.dayNameText, { color: listSubTextColor, fontSize: scaleText(13), marginLeft: 0, textAlign: 'center' }, isActiveDay && !theme.darkMode && styles.activeDayNameText]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.88}
+            allowFontScaling={false}
+          >
+            {item.dayName}
+          </Text>
         </View>
 
-        <Text style={[styles.sahurTime, { color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#333' }, isActiveDay && !theme.darkMode && styles.activeSahurTime]}>{item.sahur}</Text>
-        <Text style={[styles.iftarTime, { color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#14b8a6' }, isActiveDay && !theme.darkMode && styles.activeIftarTime]}>{item.iftar}</Text>
+        <Text
+          style={[
+            styles.sahurTime,
+            {
+              color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#333',
+              fontSize: scaleText(17),
+              width: timeColWidth,
+              marginRight: 0,
+              textAlign: 'center',
+            },
+            isActiveDay && !theme.darkMode && styles.activeSahurTime,
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.9}
+          allowFontScaling={false}
+        >
+          {item.sahur}
+        </Text>
+        <Text
+          style={[
+            styles.iftarTime,
+            {
+              color: isActiveDay && theme.darkMode ? activeDarkTextColor : theme.darkMode ? '#FFFFFF' : '#14b8a6',
+              fontSize: scaleText(17),
+              width: timeColWidth,
+              marginRight: 0,
+              textAlign: 'center',
+            },
+            isActiveDay && !theme.darkMode && styles.activeIftarTime,
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.9}
+          allowFontScaling={false}
+        >
+          {item.iftar}
+        </Text>
       </View>
     </View>
     );
@@ -447,41 +639,41 @@ const RamadanCalendarScreen = ({ navigation }) => {
             colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.headerTop}
+            style={[styles.headerTop, { paddingHorizontal: rs(15, 0.9), paddingVertical: rs(14, 0.9), paddingTop: headerTopPadding }]}
           >
             <TouchableOpacity onPress={() => navigation?.goBack()}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+              <Ionicons name="arrow-back" size={rs(24, 0.9)} color="#fff" />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.ramadan')}</Text>
-            <View style={{ width: 24 }} />
+            <Text style={[styles.headerTitle, { color: '#FFFFFF' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74} allowFontScaling={false}>{t('headers.ramadan')}</Text>
+            <View style={{ width: rs(24, 0.9) }} />
           </LinearGradient>
 
           <View style={styles.topBar}>
             <TouchableOpacity
-              style={[styles.searchBox, { backgroundColor: theme.surface }]}
+              style={[styles.searchBox, { backgroundColor: theme.surface, paddingHorizontal: rs(14, 0.9), paddingVertical: rs(11, 0.9), borderRadius: rs(12, 0.9), marginTop: rs(8, 0.9), gap: rs(8, 0.8) }]}
               onPress={() => {
                 setModalStep('province');
                 setSearchQuery('');
                 setShowCityModal(true);
               }}
             >
-              <Ionicons name="search" size={22} color="#26A69A" />
-              <Text style={[styles.searchText, { color: theme.text }]}>
+              <Ionicons name="search" size={rs(22, 0.9)} color="#26A69A" />
+              <Text style={[styles.searchText, { color: theme.text, fontSize: scaleText(16) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} allowFontScaling={false}>
                 {selectedProvince.name} / {selectedDistrict?.name || t('ramadan.selectDistrict')}
               </Text>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.yearSelector}>
+          <View style={[styles.yearSelector, { paddingHorizontal: rs(10, 0.9), paddingTop: rs(10, 0.9), paddingBottom: rs(6, 0.9), gap: rs(8, 0.8) }]}>
             {availableYears.map((year) => {
               const isActive = selectedYear === year;
               return (
                 <TouchableOpacity
                   key={year}
-                  style={[styles.yearButton, { borderColor: theme.border }, isActive && styles.yearButtonActive]}
+                  style={[styles.yearButton, { borderColor: theme.border, paddingVertical: rs(9, 0.9), borderRadius: rs(16, 0.9) }, isActive && styles.yearButtonActive]}
                   onPress={() => setSelectedYear(year)}
                 >
-                  <Text style={[styles.yearButtonText, { color: theme.textMuted }, isActive && styles.yearButtonTextActive]}>
+                  <Text style={[styles.yearButtonText, { color: theme.textMuted, fontSize: scaleText(13) }, isActive && styles.yearButtonTextActive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82} allowFontScaling={false}>
                     {year}
                   </Text>
                 </TouchableOpacity>
@@ -489,32 +681,32 @@ const RamadanCalendarScreen = ({ navigation }) => {
             })}
           </View>
 
-          <View style={styles.tabBar}>
-            <View style={styles.tabItem}>
-              <MaterialCommunityIcons name="moon-waning-crescent" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>{t('ramadan.day')}</Text>
+          <View style={[styles.tabBar, { paddingTop: rs(8, 0.9), marginHorizontal: rs(10, 0.9), marginTop: rs(6, 0.9), paddingVertical: rs(10, 0.9), borderRadius: rs(16, 0.9), paddingHorizontal: rs(10, 0.95), gap: rs(6, 0.9) }]}>
+            <View style={[styles.tabItem, { width: dayColWidth }]}>
+              <MaterialCommunityIcons name="moon-waning-crescent" size={rs(27, 0.9)} color="#26A69A" />
+              <Text style={[styles.tabLabel, { fontSize: scaleText(10) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} allowFontScaling={false}>{t('ramadan.day')}</Text>
             </View>
 
-            <View style={styles.tabItem}>
-              <MaterialCommunityIcons name="calendar-blank" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>{t('ramadan.date')}</Text>
+            <View style={[styles.tabItem, styles.tabDateItem]}>
+              <MaterialCommunityIcons name="calendar-blank" size={rs(27, 0.9)} color="#26A69A" />
+              <Text style={[styles.tabLabel, { fontSize: scaleText(10) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} allowFontScaling={false}>{t('ramadan.date')}</Text>
             </View>
 
-            <View style={styles.tabItem}>
-              <Ionicons name="sunny" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>{t('ramadan.sahur')}</Text>
+            <View style={[styles.tabItem, { width: timeColWidth }]}>
+              <Ionicons name="sunny" size={rs(27, 0.9)} color="#26A69A" />
+              <Text style={[styles.tabLabel, { fontSize: scaleText(10) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} allowFontScaling={false}>{t('ramadan.sahur')}</Text>
             </View>
 
-            <View style={styles.tabItem}>
-              <MaterialCommunityIcons name="weather-night" size={27} color="#26A69A" />
-              <Text style={styles.tabLabel}>{t('ramadan.iftar')}</Text>
+            <View style={[styles.tabItem, { width: timeColWidth }]}>
+              <MaterialCommunityIcons name="weather-night" size={rs(27, 0.9)} color="#26A69A" />
+              <Text style={[styles.tabLabel, { fontSize: scaleText(10) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} allowFontScaling={false}>{t('ramadan.iftar')}</Text>
             </View>
           </View>
         </View>
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#14b8a6" />
-            <Text style={[styles.loadingText, { color: theme.textMuted }]}>{t('ramadan.loading')}</Text>
+            <Text style={[styles.loadingText, { color: theme.textMuted, fontSize: scaleText(14) }]} allowFontScaling={false}>{t('ramadan.loading')}</Text>
           </View>
         ) : (
           <FlatList
@@ -522,8 +714,17 @@ const RamadanCalendarScreen = ({ navigation }) => {
             data={ramadanDays}
             renderItem={renderDay}
             keyExtractor={(item) => item.day}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingHorizontal: rs(10, 0.9), paddingTop: rs(2, 0.8), paddingBottom: listBottomPadding }]}
             showsVerticalScrollIndicator={true}
+            ListFooterComponent={<View style={{ height: rs(16, 0.8) }} />}
+            onScrollToIndexFailed={({ index }) => {
+              setTimeout(() => {
+                listRef.current?.scrollToOffset({
+                  offset: Math.max(0, index * rowEstimatedHeight),
+                  animated: true,
+                });
+              }, 120);
+            }}
           />
         )}
       </ImageBackground>
@@ -535,8 +736,18 @@ const RamadanCalendarScreen = ({ navigation }) => {
         onRequestClose={() => setShowCityModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: theme.surface,
+                marginTop: modalTopMargin,
+                maxHeight: modalMaxHeight,
+                paddingTop: rs(10, 0.85),
+              },
+            ]}
+          >
+            <View style={[styles.modalHeader, { paddingHorizontal: rs(20, 0.9), marginBottom: rs(10, 0.9) }]}>
               <View style={styles.modalHeaderLeft}>
                 {modalStep === 'district' && (
                   <TouchableOpacity
@@ -546,10 +757,10 @@ const RamadanCalendarScreen = ({ navigation }) => {
                       setSearchQuery('');
                     }}
                   >
-                    <Ionicons name="arrow-back" size={22} color={theme.accent} />
+                    <Ionicons name="arrow-back" size={rs(22, 0.9)} color={theme.accent} />
                   </TouchableOpacity>
                 )}
-                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                <Text style={[styles.modalTitle, { color: theme.text, fontSize: scaleText(20) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} allowFontScaling={false}>
                   {modalStep === 'district' ? t('ramadan.districtTitle', { province: selectedProvince.name }) : t('ramadan.provinceTitle')}
                 </Text>
               </View>
@@ -560,39 +771,61 @@ const RamadanCalendarScreen = ({ navigation }) => {
                   setSearchQuery('');
                 }}
               >
-                <Ionicons name="close-circle" size={28} color={theme.accent} />
+                <Ionicons name="close-circle" size={rs(28, 0.9)} color={theme.accent} />
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.modalSearchBox, { backgroundColor: theme.surfaceSoft }]}>
-              <Ionicons name="search" size={20} color={theme.textMuted} />
+            <View
+              style={[
+                styles.modalSearchBox,
+                {
+                  backgroundColor: theme.surfaceSoft,
+                  marginHorizontal: rs(15, 0.9),
+                  marginBottom: rs(15, 0.9),
+                  paddingHorizontal: rs(15, 0.9),
+                  paddingVertical: rs(6, 0.85),
+                  borderRadius: rs(12, 0.9),
+                  gap: rs(10, 0.8),
+                },
+              ]}
+            >
+              <Ionicons name="search" size={rs(20, 0.9)} color={theme.textMuted} />
               <TextInput
-                style={[styles.modalSearchInput, { color: theme.text }]}
+                style={[styles.modalSearchInput, { color: theme.text, fontSize: scaleText(16) }]}
                 placeholder={modalStep === 'district' ? t('ramadan.searchDistrict') : t('ramadan.searchProvince')}
                 placeholderTextColor={theme.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 autoFocus
+                allowFontScaling={false}
               />
             </View>
 
-            <ScrollView style={styles.cityList}>
+            <ScrollView style={[styles.cityList, { maxHeight: Math.max(rs(320, 0.9), modalMaxHeight - rs(130, 0.9)) }]}>
               {modalStep === 'province' ? (
                 <>
                   {filteredCities.map((city) => (
                     <TouchableOpacity
                       key={city.id}
-                      style={styles.cityItem}
+                      style={[
+                        styles.cityItem,
+                        {
+                          paddingVertical: modalRowVerticalPadding,
+                          paddingHorizontal: modalRowHorizontalPadding,
+                          maxWidth: modalRowMaxWidth,
+                          marginBottom: rs(5, 0.75),
+                        },
+                      ]}
                       onPress={() => handleProvinceSelect(city)}
                     >
-                      <Text style={[styles.cityName, { color: theme.text }]}>{city.name}</Text>
+                      <Text style={[styles.cityName, { color: theme.text, fontSize: scaleText(16) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} allowFontScaling={false}>{city.name}</Text>
                       {selectedProvince.id === city.id && (
-                        <Ionicons name="checkmark-circle" size={24} color={theme.accent} />
+                        <Ionicons name="checkmark-circle" size={rs(24, 0.9)} color={theme.accent} />
                       )}
                     </TouchableOpacity>
                   ))}
                   {filteredCities.length === 0 && (
-                    <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('ramadan.provinceNotFound')}</Text>
+                    <Text style={[styles.noResultText, { color: theme.textMuted, fontSize: scaleText(16), padding: rs(30, 0.9) }]} allowFontScaling={false}>{t('ramadan.provinceNotFound')}</Text>
                   )}
                 </>
               ) : (
@@ -600,24 +833,32 @@ const RamadanCalendarScreen = ({ navigation }) => {
                   {loadingDistricts ? (
                     <View style={styles.districtLoadingWrap}>
                       <ActivityIndicator size="small" color={theme.accent} />
-                      <Text style={[styles.districtLoadingText, { color: theme.textMuted }]}>{t('ramadan.districtsLoading')}</Text>
+                      <Text style={[styles.districtLoadingText, { color: theme.textMuted, fontSize: scaleText(14) }]} allowFontScaling={false}>{t('ramadan.districtsLoading')}</Text>
                     </View>
                   ) : (
                     <>
                       {filteredDistricts.map((district) => (
                         <TouchableOpacity
                           key={district.id}
-                          style={styles.cityItem}
+                          style={[
+                            styles.cityItem,
+                            {
+                              paddingVertical: modalRowVerticalPadding,
+                              paddingHorizontal: modalRowHorizontalPadding,
+                              maxWidth: modalRowMaxWidth,
+                              marginBottom: rs(5, 0.75),
+                            },
+                          ]}
                           onPress={() => handleDistrictSelect(district)}
                         >
-                          <Text style={[styles.cityName, { color: theme.text }]}>{district.name}</Text>
+                          <Text style={[styles.cityName, { color: theme.text, fontSize: scaleText(16) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9} allowFontScaling={false}>{district.name}</Text>
                           {selectedDistrict?.id === district.id && (
-                            <Ionicons name="checkmark-circle" size={24} color={theme.accent} />
+                            <Ionicons name="checkmark-circle" size={rs(24, 0.9)} color={theme.accent} />
                           )}
                         </TouchableOpacity>
                       ))}
                       {filteredDistricts.length === 0 && (
-                        <Text style={[styles.noResultText, { color: theme.textMuted }]}>{t('ramadan.districtNotFound')}</Text>
+                        <Text style={[styles.noResultText, { color: theme.textMuted, fontSize: scaleText(16), padding: rs(30, 0.9) }]} allowFontScaling={false}>{t('ramadan.districtNotFound')}</Text>
                       )}
                     </>
                   )}
@@ -631,7 +872,7 @@ const RamadanCalendarScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -720,7 +961,7 @@ const styles = StyleSheet.create({
   },
   tabBar: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    alignItems: 'center',
     paddingTop: 8,
     marginHorizontal: 10,
     marginTop: 6,
@@ -732,8 +973,11 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     alignItems: 'center',
-    flex: 1,
+    justifyContent: 'center',
     gap: 5,
+  },
+  tabDateItem: {
+    flex: 1,
   },
   tabLabel: {
     color: '#26A69A',
@@ -779,6 +1023,8 @@ const styles = StyleSheet.create({
   dateInfo: {
     flex: 1,
     marginLeft: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateText: {
     fontSize: 15,
@@ -842,6 +1088,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 25,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
+    alignSelf: 'center',
+    width: '90%',
     marginTop: 50,
     maxHeight: '75%',
     paddingTop: 10,
@@ -903,8 +1151,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    width: '94%',
+    alignSelf: 'center',
+    minHeight: 38,
+    borderRadius: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -922,3 +1172,8 @@ const styles = StyleSheet.create({
 });
 
 export default RamadanCalendarScreen;
+
+
+
+
+

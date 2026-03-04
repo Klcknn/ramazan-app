@@ -1,11 +1,13 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, ImageBackground, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
@@ -50,6 +52,32 @@ const LOCATION_STORAGE_KEYS = {
 };
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const BASE_WIDTH = 393;
+  const BASE_HEIGHT = 851;
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  // Xiaomi referansını korumak için ölçeği dar aralıkta tut.
+  const softScale = clamp(Math.min(screenWidth / BASE_WIDTH, screenHeight / BASE_HEIGHT), 0.94, 1.04);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const prayerCardWidth = Math.max(52, Math.floor((screenWidth - rs(50)) / 6));
+  const prayerCardMinHeight = rs(84);
+  const featureColumns = 5;
+  const featureGap = rs(8, 0.9);
+  const featureGridSidePadding = rs(12, 0.9);
+  const featureAvailableWidth = screenWidth - featureGridSidePadding * 2 - featureGap * (featureColumns - 1);
+  // Keep strict 5x2 grid without overflow on narrower devices.
+  const featureCardWidth = Math.floor(featureAvailableWidth / featureColumns);
+  const featureCardHeight = clamp(Math.round(featureCardWidth * 1.35), rs(82, 0.95), rs(98, 0.95));
+  const featureCardRadius = rs(14);
+  const featureTitleSize = clamp(rs(14, 0.9), 13, 15);
+  const featureLabelSize = clamp(Math.round(featureCardWidth * 0.18), 9, 12);
+  const featureLabelLineHeight = featureLabelSize + 2;
+  const featureIconSize = clamp(Math.round(featureCardWidth * 0.34), 21, 26);
+  const sectionPillHorizontal = rs(22, 0.95);
+  const sectionPillVertical = rs(10, 0.95);
+  const sectionPillMaxWidth = screenWidth - rs(56, 1);
+  const homeBottomPadding = Math.max(rs(20, 1), insets.bottom + rs(86, 1));
   const [prayerTimes, setPrayerTimes] = useState(null);
   const [nextPrayer, setNextPrayer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -648,20 +676,28 @@ export default function HomeScreen() {
             return (
               <View key={index} style={[
                 styles.prayerCard,
+                {
+                  width: prayerCardWidth,
+                  minHeight: prayerCardMinHeight,
+                  paddingVertical: rs(8),
+                  paddingHorizontal: rs(5),
+                },
                 isCurrent && styles.currentPrayerCard
               ]}>
 {/* <MaterialCommunityIcons name={prayer.icon} style={[styles.prayerIcon, isCurrent && styles.currentPrayerIcon]} size={25} color="#FFFFFF" />*/}               
-                <Text style={[styles.prayerIcon, isCurrent && styles.currentPrayerIcon]}>{prayer.icon}</Text>            
+                <Text style={[styles.prayerIcon, { fontSize: rs(22, 1.05) }, isCurrent && styles.currentPrayerIcon]}>{prayer.icon}</Text>
                 <Text style={[
                   styles.prayerName,
+                  { fontSize: rs(14, 1.02), lineHeight: rs(17, 1.02) },
                   isCurrent && styles.currentPrayerName
-                ]}>
+                ]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.88}>
                   {prayer.name}
                 </Text>
                 <Text style={[
                   styles.prayerTime,
+                  { fontSize: rs(15, 1.02), lineHeight: rs(18, 1.02) },
                   isCurrent && styles.currentPrayerTime
-                ]}>
+                ]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.9}>
                   {prayer.time}
                 </Text>
                 {isCurrent && (
@@ -682,6 +718,7 @@ export default function HomeScreen() {
         <ScrollView 
           style={styles.bottomSection} 
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: homeBottomPadding }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -699,17 +736,22 @@ export default function HomeScreen() {
             colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.featuresTitleContainer}
+            style={[styles.featuresTitleContainer, { paddingHorizontal: sectionPillHorizontal, paddingVertical: sectionPillVertical, maxWidth: sectionPillMaxWidth }]}
           >
-            <Text style={styles.featuresTitle}>{t('home.allFeatures')}</Text>
+            <Text style={[styles.featuresTitle, { fontSize: featureTitleSize, letterSpacing: 0.3 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{t('home.allFeatures')}</Text>
           </LinearGradient>
         </View>
 
         {/* ✅ 5x2 Grid */}
-        <View style={styles.featuresGrid}>
+        <View style={[styles.featuresGrid, { paddingHorizontal: featureGridSidePadding, justifyContent: 'flex-start' }]}>
           {features.map((feature, index) => (
             <TouchableOpacity 
               key={index} 
+              style={{
+                width: featureCardWidth,
+                marginBottom: rs(12, 0.95),
+                marginRight: (index + 1) % featureColumns === 0 ? 0 : featureGap,
+              }}
               activeOpacity={0.7}
               onPress={() => {
                 if (feature.screen) {
@@ -719,10 +761,15 @@ export default function HomeScreen() {
                 }
               }}
             >
-               <LinearGradient colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={styles.featureCard}>
-                <MaterialCommunityIcons name={feature.icon} size={25} color="#FFFFFF" style={{ marginBottom: 8 }} />
-                <Text style={styles.featureName}>{feature.name}</Text>
-              </LinearGradient>
+	               <LinearGradient
+                  colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']}
+                  start={{ x: 1, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={[styles.featureCard, { width: '100%', height: featureCardHeight, borderRadius: featureCardRadius, paddingHorizontal: rs(6, 0.9), paddingVertical: rs(8, 0.9), marginBottom: 0 }]}
+                >
+	                <MaterialCommunityIcons name={feature.icon} size={featureIconSize} color="#FFFFFF" style={{ marginBottom: rs(4, 0.9) }} />
+	                <Text style={[styles.featureName, { fontSize: featureLabelSize, lineHeight: featureLabelLineHeight }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} ellipsizeMode="tail">{feature.name}</Text>
+		              </LinearGradient>
               {/* 
               <LinearGradient colors={['rgba(0, 137, 123, 0.85)', 'rgba(38, 166, 154, 0.75)', 'rgba(77, 182, 172, 0.65)']} style={styles.featureIconContainer}>
                 <MaterialCommunityIcons style={styles.featureIcon} name={feature.icon} size={28} color="#FFFFFF" />
@@ -739,9 +786,9 @@ export default function HomeScreen() {
             colors={theme.headerGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.sectionTitleContainer}
+            style={[styles.sectionTitleContainer, { paddingHorizontal: sectionPillHorizontal, paddingVertical: sectionPillVertical, maxWidth: sectionPillMaxWidth }]}
           >
-            <Text style={styles.sectionTitle}>{t('home.dailyContent')}</Text>
+            <Text style={[styles.sectionTitle, { fontSize: featureTitleSize, letterSpacing: 0.3 }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{t('home.dailyContent')}</Text>
           </LinearGradient>
           
           {contentLoading ? (
@@ -1062,7 +1109,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -1208,7 +1255,6 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   currentPrayerIcon: {
-    fontSize: 24,
     opacity: 1,
   },
   prayerName: {
@@ -1218,9 +1264,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 1,
     textAlign: 'center',
+    width: '100%',
+    includeFontPadding: false,
   },
   currentPrayerName: {
-    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
     opacity: 1,
@@ -1230,9 +1277,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     opacity: 1,
+    includeFontPadding: false,
   },
   currentPrayerTime: {
-    fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
     opacity: 1,
@@ -1342,7 +1389,9 @@ const styles = StyleSheet.create({
     //color: '#333',
     fontWeight: '700',
     textAlign: 'center',
-    lineHeight: 11,
+    lineHeight: 14,
+    includeFontPadding: false,
+    width: '100%',
   },
   loadingContainer: {
     flex: 1,
@@ -1692,3 +1741,5 @@ const styles = StyleSheet.create({
     height: 180,
   },
 });
+
+

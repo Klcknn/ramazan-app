@@ -1,6 +1,7 @@
-import { LinearGradient } from 'expo-linear-gradient';
+﻿import { LinearGradient } from 'expo-linear-gradient';
 import { useContext } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { createResponsiveStyles } from '../hooks/responsive-styles';
 import { AuthContext } from '../context/AuthContext';
 
 export default function ProfileScreen() {
@@ -64,7 +65,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -147,3 +148,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
+

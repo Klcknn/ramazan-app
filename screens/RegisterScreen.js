@@ -1,3 +1,4 @@
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
 import { useState } from 'react';
 import {
     Alert,
@@ -215,7 +216,7 @@ export default function RegisterScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: '#1e3a5f',
@@ -287,3 +288,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 });
+
+
+

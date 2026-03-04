@@ -1,3 +1,4 @@
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -8,10 +9,12 @@ import {
   Alert,
   Share,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
 
@@ -20,6 +23,13 @@ export default function FavoritesScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(width / 393, 0.92, 1.0);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const scaleText = (value) => Math.round(value * clamp(softScale, 0.92, 1.0));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
 
   useEffect(() => {
     loadFavorites();
@@ -164,7 +174,7 @@ export default function FavoritesScreen({ navigation }) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color="#00897B" />
-        <Text style={[styles.loadingText, { color: theme.textMuted }]}>{t('common.loading')}</Text>
+        <Text style={[styles.loadingText, { color: theme.textMuted, fontSize: scaleText(15) }]}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -175,25 +185,25 @@ export default function FavoritesScreen({ navigation }) {
         colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[styles.header, { paddingHorizontal: rs(15, 0.9), paddingVertical: rs(14, 0.9), paddingTop: headerTopPadding }]}
       >
         <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={rs(24, 0.9)} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('favorites.title')}</Text>
-        <View style={{ width: 24 }} />
+        <Text style={[styles.headerTitle, { color: '#FFFFFF', fontSize: scaleText(20) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>{t('favorites.title')}</Text>
+        <View style={{ width: rs(24, 0.9) }} />
       </LinearGradient>
 
       {favorites.length === 0 ? (
         <View style={[styles.emptyContainer, { backgroundColor: theme.surface }]}>
           <Text style={styles.emptyIcon}>❤️</Text>
-          <Text style={[styles.emptyTitle, { color: theme.text }]}>{t('favorites.empty')}</Text>
-          <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>{t('favorites.emptyDesc')}</Text>
+          <Text style={[styles.emptyTitle, { color: theme.text, fontSize: scaleText(18) }]}>{t('favorites.empty')}</Text>
+          <Text style={[styles.emptySubtitle, { color: theme.textMuted, fontSize: scaleText(13) }]}>{t('favorites.emptyDesc')}</Text>
         </View>
       ) : (
         <>
           <View style={[styles.statsContainer, { backgroundColor: theme.surface }]}>
-            <Text style={[styles.statsText, { color: theme.textMuted }]}>{t('favorites.total')} {favorites.length}</Text>
+            <Text style={[styles.statsText, { color: theme.textMuted, fontSize: scaleText(13) }]}>{t('favorites.total')} {favorites.length}</Text>
           </View>
           
           <FlatList
@@ -209,7 +219,7 @@ export default function FavoritesScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -380,4 +390,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+
+
+
 

@@ -1,4 +1,5 @@
-﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,8 +18,10 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ViewShot from 'react-native-view-shot';
 // Firebase Web SDK import
 import { collection, getDocs } from 'firebase/firestore';
@@ -39,6 +42,13 @@ const toShareFileName = (title, fallback = 'Hadis') => {
 
 const HadisScreen = ({ navigation }) => {
   const { darkMode: isDarkMode } = useAppearance();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(width / 393, 0.92, 1.0);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const scaleText = (value) => Math.round(value * clamp(softScale, 0.92, 1.0));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tümü');
   const [selectedHadis, setSelectedHadis] = useState(null);
@@ -343,10 +353,10 @@ const HadisScreen = ({ navigation }) => {
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
         <ActivityIndicator size="large" color={theme.primary} />
-        <Text style={[styles.loadingText, { color: theme.text }]}>
+        <Text style={[styles.loadingText, { color: theme.text, fontSize: scaleText(16) }]}>
           Hadisler yükleniyor...
         </Text>
-        <Text style={[styles.loadingSubText, { color: theme.textSecondary }]}>
+        <Text style={[styles.loadingSubText, { color: theme.textSecondary, fontSize: scaleText(13) }]}>
           Lütfen bekleyin
         </Text>
       </View>
@@ -366,19 +376,19 @@ const HadisScreen = ({ navigation }) => {
         colors={['#00897B', '#26A69A', '#4DB6AC']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[styles.header, { paddingHorizontal: rs(15, 0.9), paddingVertical: rs(14, 0.9), paddingTop: headerTopPadding }]}
       >
         <TouchableOpacity onPress={() => navigation?.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={rs(24, 0.9)} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Hadisler ({hadislerData.length})</Text>
-        <View style={{ width: 24 }} />
+        <Text style={[styles.headerTitle, { fontSize: scaleText(20) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>Hadisler ({hadislerData.length})</Text>
+        <View style={{ width: rs(24, 0.9) }} />
       </LinearGradient>
 
-      <View style={[styles.searchContainer, { backgroundColor: theme.cardBg, borderColor: theme.border }]}>
-        <Ionicons name="search" size={20} color={theme.textSecondary} />
+      <View style={[styles.searchContainer, { backgroundColor: theme.cardBg, borderColor: theme.border, marginHorizontal: rs(16, 0.9), marginTop: rs(12, 0.9), borderRadius: rs(14, 0.9), paddingHorizontal: rs(15, 0.9), paddingVertical: rs(4, 0.8) }]}>
+        <Ionicons name="search" size={rs(20, 0.9)} color={theme.textSecondary} />
         <TextInput
-          style={[styles.searchInput, { color: theme.text }]}
+          style={[styles.searchInput, { color: theme.text, fontSize: scaleText(16) }]}
           placeholder="Hadis ara..."
           placeholderTextColor={theme.textSecondary}
           value={searchQuery}
@@ -386,7 +396,7 @@ const HadisScreen = ({ navigation }) => {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+            <Ionicons name="close-circle" size={rs(20, 0.9)} color={theme.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
@@ -409,7 +419,7 @@ const HadisScreen = ({ navigation }) => {
             >
               <Ionicons
                 name={item.icon}
-                size={18}
+                size={rs(18, 0.9)}
                 color={selectedCategory === item.name ? '#fff' : theme.text}
               />
               <Text
@@ -625,7 +635,7 @@ const HadisScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: { flex: 1 },
   backgroundImageFull: {
     flex: 1,
@@ -956,6 +966,10 @@ const styles = StyleSheet.create({
 });
 
 export default HadisScreen;
+
+
+
+
 
 
 

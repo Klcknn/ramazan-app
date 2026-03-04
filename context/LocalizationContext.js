@@ -200,7 +200,7 @@ const TEXT = {
     },
     ramadan: {
       selectDistrict: 'İlçe seçin',
-      day: 'Ramazan Günü',
+      day: 'Gün',
       date: 'Tarih',
       sahur: 'Sahur Vakti',
       iftar: 'İftar Vakti',
@@ -331,3 +331,4 @@ export const LocalizationProvider = ({ children }) => {
 };
 
 export const useLocalization = () => useContext(LocalizationContext);
+

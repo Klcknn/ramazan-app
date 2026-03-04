@@ -1,4 +1,5 @@
-﻿import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import React, { useEffect, useRef, useState } from 'react';
@@ -14,8 +15,10 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Circle, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 // expo-constants import
 import Constants from 'expo-constants';
@@ -25,6 +28,13 @@ import { useAppTheme } from '../hooks/use-app-theme';
 const NearestMosquesScreen = ({ navigation }) => {
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(Math.min(screenWidth / 393, screenHeight / 851), 0.92, 1.05);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.9));
+  const floatingCardWidth = Math.min(rs(320, 1), screenWidth - rs(24, 1));
   const [location, setLocation] = useState(null);
   const [mosques, setMosques] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -425,13 +435,20 @@ const NearestMosquesScreen = ({ navigation }) => {
         colors={theme.headerGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
-        style={styles.header}
+        style={[
+          styles.header,
+          {
+            paddingHorizontal: rs(15, 0.9),
+            paddingVertical: rs(14, 0.9),
+            paddingTop: headerTopPadding,
+          },
+        ]}
       >
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.mosques')}</Text>
+        <Text style={[styles.headerTitle, { color: '#FFFFFF', fontSize: rs(20, 1) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>{t('headers.mosques')}</Text>
 
         <TouchableOpacity
           style={styles.listButton}
@@ -512,6 +529,14 @@ const NearestMosquesScreen = ({ navigation }) => {
                 styles.infoCard,
                 { backgroundColor: theme.surface, borderColor: theme.border },
                 {
+                  width: floatingCardWidth,
+                  left: (screenWidth - floatingCardWidth) / 2,
+                  marginLeft: 0,
+                  marginTop: -rs(110, 1),
+                  borderRadius: rs(14, 0.95),
+                  padding: rs(12, 0.95),
+                },
+                {
                   transform: [
                     { translateX: cardPan.x },
                     { translateY: cardPan.y },
@@ -584,7 +609,7 @@ const NearestMosquesScreen = ({ navigation }) => {
 };
 
 // Styles
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -914,4 +939,8 @@ const styles = StyleSheet.create({
 });
 
 export default NearestMosquesScreen;
+
+
+
+
 

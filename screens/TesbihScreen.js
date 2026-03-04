@@ -2,7 +2,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View } from 'react-native';
+import { Alert, ImageBackground, StyleSheet, Text, TouchableOpacity, Vibration, View, useWindowDimensions } from 'react-native';
+import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
 
@@ -20,6 +22,15 @@ const createInitialCounts = () => {
 export default function TesbihScreen({ navigation }) {
   const theme = useAppTheme();
   const { t } = useLocalization();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const softScale = clamp(Math.min(screenWidth / 393, screenHeight / 851), 0.92, 1.05);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const counterFontSize = clamp(rs(120, 1), 96, 120);
+  const targetTextFontSize = clamp(rs(32, 1), 24, 32);
+  const mainButtonSize = clamp(rs(132, 1), 116, 136);
+  const headerTopPadding = Math.max(rs(50, 1), insets.top + rs(8, 0.8));
   const [target, setTarget] = useState(33);
   const [countsByTarget, setCountsByTarget] = useState(createInitialCounts);
 
@@ -159,24 +170,32 @@ export default function TesbihScreen({ navigation }) {
           colors={theme.headerGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
-          style={styles.header}
+          style={[
+            styles.header,
+            { paddingHorizontal: rs(15, 0.9), paddingVertical: rs(14, 0.9), paddingTop: headerTopPadding },
+          ]}
         >
           <TouchableOpacity onPress={() => navigation?.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: '#FFFFFF' }]}>{t('headers.tesbih')}</Text>
+          <Text style={[styles.headerTitle, { color: '#FFFFFF', fontSize: rs(20, 1) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>{t('headers.tesbih')}</Text>
           <View style={{ width: 24 }} />
         </LinearGradient>
 
-        <View style={styles.content}>
+        <View style={[styles.content, { paddingTop: rs(20, 0.95), paddingHorizontal: rs(20, 0.95) }]}>
           <View style={styles.targetContainer}>
-            <Text style={styles.targetLabel}>Hedef</Text>
-            <View style={styles.targetButtons}>
+            <Text style={[styles.targetLabel, { fontSize: rs(21, 1) }]}>Hedef</Text>
+            <View style={[styles.targetButtons, { gap: rs(8, 0.9) }]}>
               {[...TARGET_OPTIONS, 'refresh'].map((num) => (
                 <TouchableOpacity
                   key={num}
                   style={[
                     styles.targetButton,
+                    {
+                      paddingHorizontal: rs(18, 0.9),
+                      paddingVertical: rs(9, 0.9),
+                      borderRadius: rs(20, 0.95),
+                    },
                     target === num && styles.targetButtonActive,
                     num === 'refresh' && styles.refreshTargetButton,
                   ]}
@@ -185,9 +204,13 @@ export default function TesbihScreen({ navigation }) {
                   <Text
                     style={[
                       styles.targetButtonText,
+                      { fontSize: rs(15, 1) },
                       target === num && styles.targetButtonTextActive,
                       num === 'refresh' && styles.refreshTargetButtonText,
                     ]}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.82}
                   >
                     {num === 'refresh' ? 'Yenile' : num === 'infinite' ? 'Sonsuz' : num}
                   </Text>
@@ -196,20 +219,28 @@ export default function TesbihScreen({ navigation }) {
             </View>
           </View>
 
-          <View style={styles.counterContainer}>
-            <Text style={styles.counterText}>{currentCount}</Text>
-            <Text style={styles.targetText}>/ {isInfiniteTarget ? 'Sonsuz' : target}</Text>
+          <View style={[styles.counterContainer, { marginBottom: rs(28, 0.95) }]}>
+            <Text style={[styles.counterText, { fontSize: counterFontSize }]}>{currentCount}</Text>
+            <Text style={[styles.targetText, { fontSize: targetTextFontSize, marginTop: rs(-18, 1) }]}>/ {isInfiniteTarget ? 'Sonsuz' : target}</Text>
           </View>
 
-          <View style={styles.progressContainer}>
-            <View style={styles.progressBackground}>
+          <View style={[styles.progressContainer, { marginBottom: rs(28, 0.95) }]}>
+            <View style={[styles.progressBackground, { height: rs(12, 0.9), borderRadius: rs(6, 0.9), marginBottom: rs(10, 0.9) }]}>
               <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
             </View>
-            <Text style={styles.progressText}>{isInfiniteTarget ? 'Sonsuz mod' : `%${progressPercent}`}</Text>
+            <Text style={[styles.progressText, { fontSize: rs(17, 1) }]}>{isInfiniteTarget ? 'Sonsuz mod' : `%${progressPercent}`}</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.mainButton}
+            style={[
+              styles.mainButton,
+              {
+                width: mainButtonSize,
+                height: mainButtonSize,
+                borderRadius: Math.round(mainButtonSize / 2),
+                marginBottom: rs(20, 0.95),
+              },
+            ]}
             onPress={handlePress}
             activeOpacity={0.8}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -225,7 +256,7 @@ export default function TesbihScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
   },
@@ -357,3 +388,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+
+
+

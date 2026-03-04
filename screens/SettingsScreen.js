@@ -1,7 +1,9 @@
 ﻿import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useContext, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { createResponsiveStyles } from '../hooks/responsive-styles';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppearance } from '../context/AppearanceContext';
 import { useLocalization } from '../context/LocalizationContext';
 import { useAppTheme } from '../hooks/use-app-theme';
@@ -43,6 +45,40 @@ const formatDistrictName = (value) => {
 };
 
 export default function SettingsScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const shortestSide = Math.min(width, height);
+  const isTabletProfile = shortestSide >= 600 || width >= 768;
+  const isSmallPhoneProfile = width < 380;
+  const isXiaomiReferenceProfile =
+    width >= 380 &&
+    width <= 430 &&
+    height >= 760 &&
+    height <= 930;
+  const baseRatio = Math.min(width / 393, height / 851);
+  const softScale = isXiaomiReferenceProfile
+    ? 1
+    : isTabletProfile
+    ? clamp(baseRatio, 1.0, 1.12)
+    : isSmallPhoneProfile
+    ? clamp(baseRatio, 0.88, 0.96)
+    : clamp(baseRatio, 0.94, 1.05);
+  const rs = (value, factor = 1) => Math.round(value * (1 + (softScale - 1) * factor));
+  const scaleText = (value) => Math.round(value * clamp(softScale, 0.9, 1.1));
+  const headerTopPadding = Math.max(rs(54, 1), insets.top + rs(10, 0.9));
+  const sectionSpacing = isTabletProfile ? rs(28, 0.95) : isSmallPhoneProfile ? rs(20, 0.9) : rs(25, 0.9);
+  const scrollSidePadding = isTabletProfile ? rs(26, 0.95) : isSmallPhoneProfile ? rs(14, 0.9) : rs(20, 0.9);
+  const modalHorizontalPadding = isTabletProfile ? rs(56, 0.95) : isSmallPhoneProfile ? rs(12, 0.9) : rs(20, 0.9);
+  const modalWidth = isTabletProfile
+    ? clamp(Math.round(width * 0.72), 520, 760)
+    : isSmallPhoneProfile
+    ? clamp(Math.round(width * 0.94), 320, 390)
+    : clamp(Math.round(width * 0.9), 340, 430);
+  const modalMaxHeight = isTabletProfile ? '84%' : isSmallPhoneProfile ? '78%' : '80%';
+  const modalListMaxHeight = isTabletProfile ? rs(520, 0.95) : isSmallPhoneProfile ? rs(300, 0.9) : rs(380, 0.95);
+  const bottomSpacerHeight = isTabletProfile ? rs(124, 0.95) : rs(100, 0.9);
+
   // Bildirim Ayarları
   const [prayerNotifications, setPrayerNotifications] = useState(true);
   const [importantDaysNotifications, setImportantDaysNotifications] = useState(true);
@@ -535,21 +571,21 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <LinearGradient colors={theme.headerGradient} style={styles.header}>
-        <Text style={styles.headerTitle}>⚙️ {t('settings.title')}</Text>
-        <Text style={[styles.headerSubtitle, { opacity: theme.darkMode ? 0.95 : 0.9 }]}>{t('settings.subtitle')}</Text>
+      <LinearGradient colors={theme.headerGradient} style={[styles.header, { paddingTop: headerTopPadding, paddingBottom: rs(18, 0.9), paddingHorizontal: rs(16, 0.9) }]}>
+        <Text style={[styles.headerTitle, { fontSize: scaleText(26) }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.74}>⚙️ {t('settings.title')}</Text>
+        <Text style={[styles.headerSubtitle, { opacity: theme.darkMode ? 0.95 : 0.9, fontSize: scaleText(14) }]}>{t('settings.subtitle')}</Text>
       </LinearGradient>
 
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: scrollSidePadding }]}
       >
         {/* Favoriler Bölümü */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginBottom: sectionSpacing }]}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>❤️</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionFavorites')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, fontSize: scaleText(19) }]}>{t('settings.sectionFavorites')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <TouchableOpacity
@@ -581,10 +617,10 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Bildirim Ayarları */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginBottom: sectionSpacing }]}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>🔔</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionNotifications')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, fontSize: scaleText(19) }]}>{t('settings.sectionNotifications')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {notificationSettings.map((item, index) => (
@@ -616,10 +652,10 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Konum Ayarları */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginBottom: sectionSpacing }]}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>📍</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionLocation')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, fontSize: scaleText(19) }]}>{t('settings.sectionLocation')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {locationSettings.map((item, index) => (
@@ -676,10 +712,10 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Görünüm Ayarları */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginBottom: sectionSpacing }]}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>🎨</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionAppearance')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, fontSize: scaleText(19) }]}>{t('settings.sectionAppearance')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {appearanceSettings.map((item, index) => (
@@ -711,10 +747,10 @@ export default function SettingsScreen({ navigation }) {
         </View>
 
         {/* Destek & Yardım */}
-        <View style={styles.section}>
+        <View style={[styles.section, { marginBottom: sectionSpacing }]}>
           <View style={styles.sectionTitleContainer}>
             <Text style={styles.sectionIcon}>💡</Text>
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>{t('settings.sectionSupport')}</Text>
+            <Text style={[styles.sectionTitle, { color: theme.text, fontSize: scaleText(19) }]}>{t('settings.sectionSupport')}</Text>
           </View>
           <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             {supportItems.map((item, index) => (
@@ -745,7 +781,7 @@ export default function SettingsScreen({ navigation }) {
           <Text style={[styles.appInfoSubtext, { color: theme.textMuted }]}>© 2026 Tüm hakları saklıdır</Text>
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: bottomSpacerHeight }} />
       </ScrollView>
 
       <Modal
@@ -758,8 +794,8 @@ export default function SettingsScreen({ navigation }) {
           setLocationSearch('');
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.modalOverlay, { paddingHorizontal: modalHorizontalPadding }]}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: modalWidth, maxHeight: modalMaxHeight }]}>
             <View style={styles.modalHeaderRow}>
               {locationModalStep === 'district' ? (
                 <TouchableOpacity
@@ -801,7 +837,7 @@ export default function SettingsScreen({ navigation }) {
               />
             </View>
 
-            <ScrollView style={styles.modalList}>
+            <ScrollView style={[styles.modalList, { maxHeight: modalListMaxHeight }]}>
               {locationModalStep === 'province' ? (
                 <>
                   {loadingProvinces ? (
@@ -864,8 +900,8 @@ export default function SettingsScreen({ navigation }) {
         transparent
         onRequestClose={() => setLanguageModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.modalOverlay, { paddingHorizontal: modalHorizontalPadding }]}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border, width: modalWidth, maxHeight: modalMaxHeight }]}>
             <View style={styles.modalHeaderRow}>
               <View style={styles.modalBackPlaceholder} />
               <Text style={[styles.modalTitle, { color: theme.text }]}>{t('settings.languageModalTitle')}</Text>
@@ -874,7 +910,7 @@ export default function SettingsScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalList}>
+            <ScrollView style={[styles.modalList, { maxHeight: modalListMaxHeight }]}>
               {languages.map((lang) => {
                 const selected = lang.code === language;
                 return (
@@ -903,7 +939,7 @@ export default function SettingsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
@@ -916,13 +952,13 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
   },
   headerTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginBottom: 8,
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#E0F2F1',
     fontWeight: '500',
   },
@@ -1167,5 +1203,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
 });
+
+
+
+
 
 

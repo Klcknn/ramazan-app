@@ -1,3 +1,4 @@
+﻿import { createResponsiveStyles } from '../hooks/responsive-styles';
 /* eslint-disable no-unused-vars */
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,7 +7,6 @@ import { useContext, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   ImageBackground,
   StyleSheet,
   Text,
@@ -18,8 +18,6 @@ import AppLogo from '../assets/images/logo/AppLogo';
 import { auth } from '../config/firebase';
 import { LocationContext } from '../context/LocationContext';
 import { useLocalization } from '../context/LocalizationContext';
-
-const { height } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -202,7 +200,7 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = createResponsiveStyles({
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -340,4 +338,7 @@ const styles = StyleSheet.create({
     color: '#2E7D32',
   },
 });
+
+
+
 
